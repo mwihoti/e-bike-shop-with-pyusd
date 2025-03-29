@@ -26,7 +26,7 @@ export function ProductCard({ product}) {
 
     return (
 
-        <Card className="over-flow-hidden transition-all hover:shadow-md">
+        <Card className="overflow-hidden transition-all hover:shadow-md">
             <Link href={`/marketplace/${product.id}`}>
             <div className="relative aspect-square">
                 <Image

@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { ProductGrid } from "@/components/marketplace/product-grid"
 import { CartSummary } from "@/components/marketplace/cart-summary"
-import { WalletStatus } from "@/components/marketplace/wallet-status"
+//import { WalletStatus } from "@/components/marketplace/wallet-status"
 import { useWallet } from "@/hooks/use-wallet"
-//import { useCart } from "@/hooks/use-cart"
+import { useCart } from "@/hooks/use-cart"
 import { ShoppingCart, Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -36,7 +36,7 @@ export default function MarketPlacePage() {
                         <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">PYUSD Marketplace</h1>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    {/*<div className="flex items-center gap-4">
                         <WalletStatus />
                         <Sheet>
                             <SheetTrigger asChild>
@@ -52,7 +52,7 @@ export default function MarketPlacePage() {
                         </Sheet>
                         <Link href="/">
                         <Button variant="ghost">Home</Button></Link>
-                    </div>
+                    </div> */}
                 </div>
                 {/* Main content */}
                 <ProductGrid />

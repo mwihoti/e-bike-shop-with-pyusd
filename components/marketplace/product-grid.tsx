@@ -18,8 +18,7 @@ export function ProductGrid() {
     // Filter products
     const filteredProducts = products.filter((product) => {
         // search filter
-        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase() ||
-            product.description.toLowerCase().includes(searchQuery).toLowerCase())
+        const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || product.description.toLowerCase().includes(searchQuery.toLowerCase())
 
         // Category filter
         const matchesCategory = categoryFilter === "all" || product.category === categoryFilter
