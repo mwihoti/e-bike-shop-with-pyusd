@@ -1,68 +1,53 @@
-'use client'
+"use client"
 
-import { Badge } from "@/components/ui/badge"
+import { useCart } from "@/hooks/use-cart"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { ShoppingCart, Eye } from "lucide-react"
+import { Trash, MinusCircle, PlusCircle } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useCart } from "@/hooks/use-cart"
 
-export function ProductCard({ product}) {
-    const { addItem } = useCart()
+export function CartItem({ item }) {
+  const { updateItemQuantity, removeItem } = useCart()
 
-    const handleAddToCart = (e) => {
-        e.preventDefault() // Prevent navigation
-        e.stopPropagation() // Stop event propagation
-
-        addItem({
-            id: product.id,
-            name: product.name,
-            price: product.price,
-            image: product.image,
-            quantity: 1,
-        })
+  const decreaseQuantity = () => {
+    if (item.quantity > 1) {
+      updateItemQuantity(item.id, item.quantity - 1)
+    } else {
+      removeItem(item.id)
     }
+  }
 
-    return (
+  const increaseQuantity = () => {
+    updateItemQuantity(item.id, item.quantity + 1)
+  }
 
-        <Card className="over-flow-hidden transition-all hover:shadow-md">
-            <Link href={`/marketplace/${product.id}`}>
-            <div className="relative aspect-square">
-                <Image
-                    src={product.image || "/placeholder.svg"}
-                    alt={product.name}
-                    fill
-                    className="object-cover transition-transform hover:scale-105"/>
-            </div>
-            </Link>
+  return (
+    <div className="flex items-start space-x-4">
+      <div className="relative h-16 w-16 rounded-md overflow-hidden flex-shrink-0">
+        <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
+      </div>
 
-            <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                    <Link href={`/marketplace/${product.id}`} className="hover:underline">
-                    <h3 className="font-semibold  text-lg line-clamp-1">{product.name}</h3>
-                    </Link>
-                    <Badge variant="secondary">{product.category}</Badge>
-                </div>
+      <div className="flex-1 min-w-0">
+        <Link href={`/marketplace/${item.id}`} className="hover:underline">
+          <h4 className="font-medium text-sm line-clamp-1">{item.name}</h4>
+        </Link>
+        <p className="text-sm text-muted-foreground">{item.price.toFixed(2)} PYUSD</p>
 
-                <p className="text-primary font-bold">{product.price.toFixed(2)} PYUSD</p>
-                <p className="text-sm text-muted--foreground line-clamp-2 mt-2">{product.description}</p>
-            </CardContent>
+        <div className="flex items-center mt-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={decreaseQuantity}>
+            <MinusCircle className="h-4 w-4" />
+          </Button>
+          <span className="mx-2 text-sm">{item.quantity}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={increaseQuantity}>
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-            <CardFooter className="p-4 pt-0 flex gap-2">
-                <Button variant="outline" className="w-full" onClick={handleAddToCart}>
-                    <ShoppingCart className="mr-2 h-4 w-4"/>
-                    Add to Cart
-                </Button>
-                <Link href={`/marketplace/${product.id}`} className="w-full">
-                <Button variant="secondary" className="w-full">
-                    <Eye className="mr-2 h-4 w-4" />
-                    View
-                </Button>
-
-                </Link>
-
-            </CardFooter>
-        </Card>
-    )
+      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(item.id)}>
+        <Trash className="h-4 w-4" />
+      </Button>
+    </div>
+  )
 }
+

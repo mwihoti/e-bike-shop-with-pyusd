@@ -9,11 +9,9 @@ import { ShoppingBag, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 
-
 export function CartSummary() {
-    const {items, total, itemCount, clearCart} = useCart()
+    const { items, total, itemCount, clearCart } = useCart()
     const [isMounted, setIsMounted] = useState(false)
-
 
     // prevent hydration errors
     useEffect(() => {
@@ -25,7 +23,6 @@ export function CartSummary() {
             <div className="flex flex-col h-full">
                 <div className="flex items-center justify-between py-4">
                     <h2 className="text-lg font-semibold flex items-center">
-
                         <ShoppingCart className="mr-2 h-5 w-5" />
                         Your Cart
                     </h2>
@@ -37,12 +34,13 @@ export function CartSummary() {
             </div>
         )
     }
+    
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between py-4">
                 <h2 className="text-lg font-semibold flex items-center">
                     <ShoppingCart className="mr-2 h-5 w-5"/>
-                    YourCart
+                    Your Cart
                 </h2>
                 {itemCount > 0 && (
                     <Button variant="ghost" size="sm" onClick={clearCart}>
@@ -57,44 +55,45 @@ export function CartSummary() {
                     <ShoppingBag className="h-12 w-12 text-muted-foreground mb-4"/>
                     <p className="text-muted-foreground mb-4">Your cart is empty</p>
                     <Link href="/marketplace">
-                    <Button>Browse products</Button>
-                    </Link>
-
-                    </div>
-
-            ) : (
-                <>
-                <ScrollArea className="flex-1 py-4">
-                    <div className="space-y-4">
-                        {items.map((item) => (
-                            <CartItem key={item.id} item={item} />
-                        ))}
-                    </div>
-                </ScrollArea>
-
-                <div className="pt-4">
-                    <Separator className="mb-4" />
-
-                    <div className="space-y-2">
-                        <div className="flex justify-between">
-                            <span className="font-medium">Subtotal:</span>
-                            <span>{total.toFixed(2)} PYUSD</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="font-medium">Shipping:</span>
-                            <span>Free</span>
-                        </div>
-                        <Separator className="my-2" />
-                        <div className="flex justify-between text-lg font-bold">
-                            <span>Total:</span>
-                            <span>{total.toFixed(2)} PYUSD</span>
-                        </div>
-                    </div>
-
-                    <Link href="/marketplace/checkout">
-                    <Button className="w-full mt-4">Checkout</Button>
+                        <Button>Browse products</Button>
                     </Link>
                 </div>
+            ) : (
+                <>
+                    <ScrollArea className="flex-1 py-4">
+                        <div className="space-y-4">
+                            {items.map((item) => (
+                                <CartItem 
+                                    key={`${item.id}-${item.variant || ''}`} 
+                                    item={item} 
+                                />
+                            ))}
+                        </div>
+                    </ScrollArea>
+
+                    <div className="pt-4">
+                        <Separator className="mb-4" />
+
+                        <div className="space-y-2">
+                            <div className="flex justify-between">
+                                <span className="font-medium">Subtotal:</span>
+                                <span>{total.toFixed(2)} PYUSD</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="font-medium">Shipping:</span>
+                                <span>Free</span>
+                            </div>
+                            <Separator className="my-2" />
+                            <div className="flex justify-between text-lg font-bold">
+                                <span>Total:</span>
+                                <span>{total.toFixed(2)} PYUSD</span>
+                            </div>
+                        </div>
+
+                        <Link href="/marketplace/checkout">
+                            <Button className="w-full mt-4">Checkout</Button>
+                        </Link>
+                    </div>
                 </>
             )}
         </div>

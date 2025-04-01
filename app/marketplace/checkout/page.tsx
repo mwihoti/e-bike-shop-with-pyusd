@@ -17,7 +17,7 @@ import { ethers } from "ethers"
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { isConnected, balance, pyusdContract, account, addTransaction } = useWallet()
+  const { isConnected, balance, pyusdContract, account, addTransaction, isMockContract, useTestMode, toggleTestMode, getTestTokens } = useWallet()
   const { items, total, clearCart } = useCart()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState("")
@@ -52,7 +52,7 @@ export default function CheckoutPage() {
       return
     }
 
-    if (!hasEnoughBalance) {
+    if (!hasEnoughBalance && !useTestMode) {
       setError("Insufficient PYUSD balance")
       return
     }
@@ -77,7 +77,7 @@ export default function CheckoutPage() {
         amount: total.toString(),
         timestamp: Date.now(),
         status: "pending",
-        isMock: false,
+        isMock: isMockContract || useTestMode,
       })
 
       // Wait for transaction to be mined
@@ -90,7 +90,7 @@ export default function CheckoutPage() {
         amount: total.toString(),
         timestamp: Date.now(),
         status: "confirmed",
-        isMock: false,
+        isMock: isMockContract || useTestMode,
       })
 
       // Clear cart and show success
@@ -120,6 +120,11 @@ export default function CheckoutPage() {
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription>
                 Your payment has been processed successfully. Thank you for your purchase!
+                {(isMockContract || useTestMode) && (
+                  <p className="mt-2 text-sm">
+                    <strong>Note:</strong> This was a test transaction using simulated PYUSD tokens.
+                  </p>
+                )}
               </AlertDescription>
             </Alert>
 
@@ -173,6 +178,21 @@ export default function CheckoutPage() {
               ) : (
                 <>
                   <Separator className="my-4" />
+                  {/* Test Mode Toggle */}
+                  <div className="flex  items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="font-medium">Test Mode</div>
+                      <div className="text-sm text-muted-foreground">Use simulated PYUSD tokens for testing</div>
+                    </div>
+                    <switch
+                      checked={useTestMode || isMockContract}
+                      onCheckedChange={toggleTestMode}
+                      disabled={isMockContract}
+                      />
+
+                  </div>
+
+                  <Separator className="my-4" />
 
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -190,13 +210,14 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {!hasEnoughBalance && (
+                  {!hasEnoughBalance && !useTestMode && !isMockContract (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>Insufficient Balance</AlertTitle>
                       <AlertDescription>
                         Your PYUSD balance ({Number.parseFloat(balance).toFixed(2)}) is less than the total amount (
                         {total.toFixed(2)}).
+                        <p className="mt-2">Enable test mode to complete this purchase with simulated tokens.</p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -213,7 +234,7 @@ export default function CheckoutPage() {
             <CardFooter>
               <Button
                 className="w-full"
-                disabled={!isConnected || !hasEnoughBalance || isProcessing}
+                disabled={!isConnected ||( !hasEnoughBalance && !useTestMode && !isMockContract) || isProcessing}
                 onClick={handleCheckout}
               >
                 {isProcessing ? (
@@ -222,7 +243,7 @@ export default function CheckoutPage() {
                     Processing...
                   </>
                 ) : (
-                  `Pay ${total.toFixed(2)} PYUSD`
+                  `Pay ${total.toFixed(2)} PYUSD${useTestMode || isMockContract ? " (Test)" : ""}`
                 )}
               </Button>
             </CardFooter>

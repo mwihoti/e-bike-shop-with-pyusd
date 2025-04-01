@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "@/hooks/use-wallet"
+import { CartProvider } from "@/hooks/use-cart"
 
 
 const geistSans = Geist({
@@ -30,7 +31,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <WalletProvider>
-        {children}
+          <CartProvider>
+          {children}
+
+          </CartProvider>
         </WalletProvider>
       </body>
     </html>
