@@ -1,9 +1,27 @@
 "use client"
-import { WalletComponent } from "@/components/wallet"
+import { useState } from "react"
+import { useWallet } from "@/hooks/use-wallet"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Wallet } from "lucide-react"
+import { Wallet, AlertTriangle } from "lucide-react"
+import { Button } from "../ui/button"
 
 export function ConnectWalletPrompt() {
+  const { connectWallet } = useWallet()
+  const [ isConnecting, setIsConnecting] = useState(false)
+
+  const handleConnect = async () => {
+    setIsConnecting(true)
+
+    try {
+      await connectWallet()
+
+    } catch (error) {
+      console.error("Failed to connect wallet:", error)
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
   return (
     <div className="space-y-6 py-4">
       <div className="text-center mb-6">
@@ -18,7 +36,16 @@ export function ConnectWalletPrompt() {
         </AlertDescription>
       </Alert>
 
-      <WalletComponent />
+      <Alert className="bg-amber-50 text-amber-800 border-amber-200">
+        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertDescription>
+          Don't have PYUSD? After connecting, you can enable test mode to use simulated tokens for testing.
+        </AlertDescription>
+      </Alert>
+      <Button className="w-full" onClick={handleConnect} disabled={isConnecting}>
+        {isConnecting ? "Connecting..." : "Connect Wallet"}
+      </Button>
+
     </div>
   )
 }
