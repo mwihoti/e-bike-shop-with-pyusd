@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useCart } from "@/hooks/use-cart"
+import { useOrders } from "@/hooks/use-orders"
 import { getProductById } from "@/lib/marketplace"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { WalletStatus } from "@/components/marketplace/wallet-status"
-import { ArrowLeft, Check, MinusCircle, PlusCircle, ShoppingCart } from "lucide-react"
+import { ArrowLeft, Check, MinusCircle, PlusCircle, ShoppingCart, Star } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -17,10 +18,12 @@ export default function ProductPage() {
   const params = useParams()
   const router = useRouter()
   const { addItem, updateItemQuantity, getItem } = useCart()
+  const { getReviews } = useOrders()
   const [product, setProduct] = useState(null)
   const [quantity, setQuantity] = useState(1)
   const [isAdded, setIsAdded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [reviews, setReviews] = useState([])
 
   // Get product ID from URL
   const id = params.id
@@ -49,6 +52,14 @@ export default function ProductPage() {
       }
     }
   }, [id, router, getItem])
+
+  // Fetch reviews
+  useEffect(() => {
+    if (isMounted && id) {
+      const productReviews = getReviews(id)
+      setReviews(productReviews)
+    }
+  }, [isMounted, id, getReviews])
 
   if (!isMounted || !product) {
     return null
@@ -79,6 +90,15 @@ export default function ProductPage() {
       quantity,
     })
     setIsAdded(true)
+  }
+
+  // Calculate average rating
+  const averageRating =
+    reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0
+
+  // Format date
+  const formatDate = (timestamp) => {
+    return new Date(timestamp).toLocaleDateString()
   }
 
   return (
@@ -115,6 +135,22 @@ export default function ProductPage() {
               <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">
                 Out of Stock
               </Badge>
+            )}
+
+            {reviews.length > 0 && (
+              <div className="flex items-center ml-3">
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-4 w-4 ${
+                        star <= Math.round(averageRating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm ml-1">({reviews.length})</span>
+              </div>
             )}
           </div>
 
@@ -177,6 +213,47 @@ export default function ProductPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Reviews Section */}
+      <div className="mt-12">
+        <h2 className="text-2xl font-bold mb-6">Customer Reviews</h2>
+
+        {reviews.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">No reviews yet. Be the first to review this product!</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {reviews.map((review) => (
+              <Card key={review.id}>
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex mb-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${
+                              star <= review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <p className="mb-2">{review.comment}</p>
+                      <p className="text-sm text-muted-foreground">
+                        By {review.userAddress.substring(0, 6)}...
+                        {review.userAddress.substring(review.userAddress.length - 4)} on {formatDate(review.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

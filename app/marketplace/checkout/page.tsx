@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/hooks/use-wallet"
-import { useOrders } from "@/hooks/use-orders"
 import { useCart } from "@/hooks/use-cart"
+import { useOrders } from "@/hooks/use-orders"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { WalletStatus } from "@/components/marketplace/wallet-status"
 import { CheckoutSummary } from "@/components/marketplace/checkout-summary"
 import { ConnectWalletPrompt } from "@/components/marketplace/connect-wallet-prompt"
-import { AlertCircle, ArrowLeft, CheckCircle, Loader2, ShoppingBag, Wallet } from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle, Loader2, Wallet, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import { ethers } from "ethers"
 
@@ -95,6 +95,7 @@ export default function CheckoutPage() {
     useTestMode,
     toggleTestMode,
     getTestTokens,
+    updateBalance,
   } = useWallet()
   const { items, total, clearCart } = useCart()
   const { addOrder } = useOrders()
@@ -192,40 +193,40 @@ export default function CheckoutPage() {
         isMock: isMockContract || useTestMode,
       })
 
-      // create order record
+      // Create order record
       const newOrderId = addOrder({
         items: [...items],
         total,
         status: "processing",
-        timeStamp: Date.now(),
+        timestamp: Date.now(),
         address: account,
         transactionHash: tx.hash,
         isTestPurchase: isMockContract || useTestMode,
         trackingInfo: {
-          estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          split("T")[0],
+          estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
           updates: [
             {
-              status: "Order Placed.",
+              status: "Order Placed",
               timestamp: Date.now(),
-              message: "Your order has been receiveed and is being processed."
-            }
-          ]
-        }
+              message: "Your order has been received and is being processed.",
+            },
+          ],
+        },
       })
+
       setOrderId(newOrderId)
 
-      // update balance after purchase
+      // Update balance after purchase
       if (useTestMode || isMockContract) {
-        // For test mode, manually update balance
+        // For test mode, manually update the balance
         const newBalance = (Number.parseFloat(balance) - total).toString()
 
-        // update the displayed  balance
+        // Update the mock contract balance
         if (mockContract) {
           mockContract._balances[account] = newBalance
         }
 
-        // update the displayed balance
+        // Update the displayed balance
         updateBalance(contractToUse, account)
       }
 
@@ -271,25 +272,25 @@ export default function CheckoutPage() {
                 )}
               </AlertDescription>
             </Alert>
+
             <div className="flex flex-col gap-4 mt-6">
               <Link href={`/marketplace/orders/${orderId}`}>
-              <Button className="w-full">
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                View order details
-              </Button>
+                <Button className="w-full">
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  View Order Details
+                </Button>
               </Link>
 
               <Link href="/marketplace/orders">
-              <Button variant="outline" className="w-full">
-                View all Orders
-              </Button>
-              
+                <Button variant="outline" className="w-full">
+                  View All Orders
+                </Button>
               </Link>
-            </div>
 
-            <div className="text-center mt-6">
               <Link href="/marketplace">
-                <Button className="mx-auto">Continue Shopping</Button>
+                <Button variant="secondary" className="w-full">
+                  Continue Shopping
+                </Button>
               </Link>
             </div>
           </CardContent>
