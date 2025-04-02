@@ -16,6 +16,71 @@ import { AlertCircle, ArrowLeft, CheckCircle, Loader2, Wallet } from "lucide-rea
 import Link from "next/link"
 import { ethers } from "ethers"
 
+// Mock contract implementation for testing
+class MockPYUSDContract {
+  constructor(signer) {
+    this.signer = signer
+    this._balances = {}
+    this._decimals = 6
+    this._symbol = "PYUSD"
+  }
+
+  async balanceOf(address) {
+    // Return mock balance or default to 1000 PYUSD
+    return ethers.parseUnits(this._balances[address] || "1000", this._decimals)
+  }
+
+  async decimals() {
+    return this._decimals
+  }
+
+  async symbol() {
+    return this._symbol
+  }
+
+  async transfer(to, amount) {
+    const fromAddress = await this.signer.getAddress()
+
+    // Simulate transaction
+    const tx = {
+      hash:
+        "0x" +
+        Array(64)
+          .fill(0)
+          .map(() => Math.floor(Math.random() * 16).toString(16))
+          .join(""),
+      wait: async () => {
+        // Simulate transaction confirmation after 2 seconds
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            // Update balances
+            const amountInPYUSD = ethers.formatUnits(amount, this._decimals)
+            this._balances[fromAddress] = (
+              Number.parseFloat(this._balances[fromAddress] || "1000") - Number.parseFloat(amountInPYUSD)
+            ).toString()
+            this._balances[to] = (
+              Number.parseFloat(this._balances[to] || "0") + Number.parseFloat(amountInPYUSD)
+            ).toString()
+
+            resolve({
+              status: 1,
+              transactionHash: tx.hash,
+            })
+          }, 2000)
+        })
+      },
+    }
+
+    // Add transfer.estimateGas method
+    tx.estimateGas = async () => ethers.parseUnits("21000", 0)
+
+    return tx
+  }
+}
+
+// Add estimateGas method to the transfer function
+MockPYUSDContract.prototype.transfer.estimateGas = async (to, amount) => ethers.parseUnits("21000", 0)
+
 export default function CheckoutPage() {
   const router = useRouter()
   const {
@@ -23,6 +88,7 @@ export default function CheckoutPage() {
     balance,
     pyusdContract,
     account,
+    signer,
     addTransaction,
     isMockContract,
     useTestMode,
@@ -34,6 +100,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [mockContract, setMockContract] = useState(null)
 
   // Store address - this would typically be your company's wallet
   const STORE_ADDRESS = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"
@@ -41,7 +108,18 @@ export default function CheckoutPage() {
   // Prevent hydration errors
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+
+    // Create a mock contract if we're in test mode
+    if ((useTestMode || isMockContract) && signer && !mockContract) {
+      const mock = new MockPYUSDContract(signer)
+      setMockContract(mock)
+
+      // Set initial balance
+      if (account) {
+        mock._balances[account] = "10000"
+      }
+    }
+  }, [useTestMode, isMockContract, signer, account, mockContract])
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -58,12 +136,12 @@ export default function CheckoutPage() {
   const hasEnoughBalance = Number.parseFloat(balance) >= total
 
   const handleCheckout = async () => {
-    if (!account || !pyusdContract) {
+    if (!account) {
       setError("Please connect your wallet first")
       return
     }
 
-    if (!hasEnoughBalance && !isMockContract && !useTestMode) {
+    if (!hasEnoughBalance && !useTestMode && !isMockContract) {
       setError("Insufficient PYUSD balance")
       return
     }
@@ -72,14 +150,21 @@ export default function CheckoutPage() {
     setError("")
 
     try {
+      // Determine which contract to use
+      const contractToUse = useTestMode || isMockContract ? mockContract : pyusdContract
+
+      if (!contractToUse) {
+        throw new Error("Contract not initialized. Please try reconnecting your wallet.")
+      }
+
       // Get token decimals
-      const decimals = await pyusdContract.decimals()
+      const decimals = await contractToUse.decimals()
 
       // Convert amount to token units
       const amountInWei = ethers.parseUnits(total.toString(), decimals)
 
       // Send transaction
-      const tx = await pyusdContract.transfer(STORE_ADDRESS, amountInWei)
+      const tx = await contractToUse.transfer(STORE_ADDRESS, amountInWei)
 
       // Add to transaction history
       addTransaction({
@@ -109,7 +194,15 @@ export default function CheckoutPage() {
       setSuccess(true)
     } catch (err) {
       console.error("Checkout error:", err)
-      setError(err.message || "Transaction failed")
+
+      // Handle specific error messages
+      if (err.message && err.message.includes("INSUFFICIENT_BALANCE")) {
+        setError("Insufficient PYUSD balance. Please enable test mode to complete this purchase with simulated tokens.")
+      } else if (err.message && err.message.includes("user rejected")) {
+        setError("Transaction was rejected in your wallet.")
+      } else {
+        setError(err.message || "Transaction failed")
+      }
     } finally {
       setIsProcessing(false)
     }
@@ -253,7 +346,7 @@ export default function CheckoutPage() {
             <CardFooter>
               <Button
                 className="w-full"
-                disabled={!isConnected || (!hasEnoughBalance && !useTestMode && !isMockContract) || isProcessing}
+                disabled={!account || (!hasEnoughBalance && !useTestMode && !isMockContract) || isProcessing}
                 onClick={handleCheckout}
               >
                 {isProcessing ? (
