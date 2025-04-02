@@ -8,16 +8,27 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { WalletStatus } from "@/components/marketplace/wallet-status"
 import { CheckoutSummary } from "@/components/marketplace/checkout-summary"
 import { ConnectWalletPrompt } from "@/components/marketplace/connect-wallet-prompt"
-import { AlertCircle, ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle, Loader2, Wallet } from "lucide-react"
 import Link from "next/link"
 import { ethers } from "ethers"
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { isConnected, balance, pyusdContract, account, addTransaction, isMockContract, useTestMode, toggleTestMode, getTestTokens } = useWallet()
+  const {
+    isConnected,
+    balance,
+    pyusdContract,
+    account,
+    addTransaction,
+    isMockContract,
+    useTestMode,
+    toggleTestMode,
+    getTestTokens,
+  } = useWallet()
   const { items, total, clearCart } = useCart()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState("")
@@ -178,19 +189,27 @@ export default function CheckoutPage() {
               ) : (
                 <>
                   <Separator className="my-4" />
+
                   {/* Test Mode Toggle */}
-                  <div className="flex  items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <div className="font-medium">Test Mode</div>
                       <div className="text-sm text-muted-foreground">Use simulated PYUSD tokens for testing</div>
                     </div>
-                    <switch
+                    <Switch
                       checked={useTestMode || isMockContract}
                       onCheckedChange={toggleTestMode}
-                      disabled={isMockContract}
-                      />
-
+                      disabled={isMockContract} // Disable if already using mock contract
+                    />
                   </div>
+
+                  {/* Get Test Tokens Button */}
+                  {(useTestMode || isMockContract) && (
+                    <Button variant="outline" className="w-full" onClick={getTestTokens}>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Get Test PYUSD Tokens
+                    </Button>
+                  )}
 
                   <Separator className="my-4" />
 
@@ -210,7 +229,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {!hasEnoughBalance && !useTestMode && !isMockContract (
+                  {!hasEnoughBalance && !useTestMode && !isMockContract && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>Insufficient Balance</AlertTitle>
@@ -234,7 +253,7 @@ export default function CheckoutPage() {
             <CardFooter>
               <Button
                 className="w-full"
-                disabled={!isConnected ||( !hasEnoughBalance && !useTestMode && !isMockContract) || isProcessing}
+                disabled={!isConnected || (!hasEnoughBalance && !useTestMode && !isMockContract) || isProcessing}
                 onClick={handleCheckout}
               >
                 {isProcessing ? (
