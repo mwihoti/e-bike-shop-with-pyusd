@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/hooks/use-wallet"
+import { useOrders } from "@/hooks/use-orders"
 import { useCart } from "@/hooks/use-cart"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { WalletStatus } from "@/components/marketplace/wallet-status"
 import { CheckoutSummary } from "@/components/marketplace/checkout-summary"
 import { ConnectWalletPrompt } from "@/components/marketplace/connect-wallet-prompt"
-import { AlertCircle, ArrowLeft, CheckCircle, Loader2, Wallet } from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle, Loader2, ShoppingBag, Wallet } from "lucide-react"
 import Link from "next/link"
 import { ethers } from "ethers"
 
@@ -96,11 +97,13 @@ export default function CheckoutPage() {
     getTestTokens,
   } = useWallet()
   const { items, total, clearCart } = useCart()
+  const { addOrder } = useOrders()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [mockContract, setMockContract] = useState(null)
+  const [orderId, setOrderId] = useState("")
 
   // Store address - this would typically be your company's wallet
   const STORE_ADDRESS = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199"
@@ -189,6 +192,43 @@ export default function CheckoutPage() {
         isMock: isMockContract || useTestMode,
       })
 
+      // create order record
+      const newOrderId = addOrder({
+        items: [...items],
+        total,
+        status: "processing",
+        timeStamp: Date.now(),
+        address: account,
+        transactionHash: tx.hash,
+        isTestPurchase: isMockContract || useTestMode,
+        trackingInfo: {
+          estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          split("T")[0],
+          updates: [
+            {
+              status: "Order Placed.",
+              timestamp: Date.now(),
+              message: "Your order has been receiveed and is being processed."
+            }
+          ]
+        }
+      })
+      setOrderId(newOrderId)
+
+      // update balance after purchase
+      if (useTestMode || isMockContract) {
+        // For test mode, manually update balance
+        const newBalance = (Number.parseFloat(balance) - total).toString()
+
+        // update the displayed  balance
+        if (mockContract) {
+          mockContract._balances[account] = newBalance
+        }
+
+        // update the displayed balance
+        updateBalance(contractToUse, account)
+      }
+
       // Clear cart and show success
       clearCart()
       setSuccess(true)
@@ -231,6 +271,21 @@ export default function CheckoutPage() {
                 )}
               </AlertDescription>
             </Alert>
+            <div className="flex flex-col gap-4 mt-6">
+              <Link href={`/marketplace/orders/${orderId}`}>
+              <Button className="w-full">
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                View order details
+              </Button>
+              </Link>
+
+              <Link href="/marketplace/orders">
+              <Button variant="outline" className="w-full">
+                View all Orders
+              </Button>
+              
+              </Link>
+            </div>
 
             <div className="text-center mt-6">
               <Link href="/marketplace">
