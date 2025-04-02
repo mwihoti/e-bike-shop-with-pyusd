@@ -121,6 +121,41 @@ export function WalletProvider({ children }) {
           setIsConnected(!!account)
           setIsMockContract(isMockContract || false)
           setUseTestMode(useTestMode || false)
+
+          // If we have a connected account but no contract, try to get the contract from window
+          if (account && !pyusdContract && window.pyusdContract) {
+            setPyusdContract(window.pyusdContract)
+          }
+
+          // if we have a connected accounnt but no signer, try to get the signer from window
+          if (account && !signer && window.ethereum) {
+            const connectSigner = async () => {
+                try {
+                    const provider = new ethers.BrowserProvider(window.ethereum)
+                    const signer = await provider.getSigner()
+                    setSigner(signer)
+                    setProvider(provider)
+
+                    // create mock contract with the signer
+                    if (isMockContract || useTestMode) {
+                        const mockContract = new MockPYUSDContract(signer)
+                        mockContract._balances[account] = balance
+                        setMockPyusdContract(mockContract)
+
+
+                        // if in test mode, use the mock contract
+                        if (useTestMode) {
+                            setPyusdContract(mockContract)
+                        }
+                    } 
+                } catch (error) {
+                    console.error("Failed to reconnect signer:", error)
+                }
+            }
+            connectSigner()
+          }
+
+          // If we have have a connected account but no signer, try to get the signer from window
         } catch (error) {
           console.error("Failed to parse wallet data from localStorage:", error)
         }
@@ -309,14 +344,10 @@ export function WalletProvider({ children }) {
       setMockPyusdContract(mockContract)
 
       // Set the active contract based on network and test mode
-      if (shouldUseMock || useTestMode) {
-        setPyusdContract(mockContract)
-      } else {
-        setPyusdContract(realContract)
-      }
+      const activeContract = shouldUseMock || useTestMode ? mockContract : realContract
+      setPyusdContract(activeContract)
 
       // Get PYUSD balance
-      const activeContract = shouldUseMock || useTestMode ? mockContract : realContract
       await updateBalance(activeContract, accounts[0])
 
       // Store wallet data for other components
@@ -324,16 +355,22 @@ export function WalletProvider({ children }) {
         "pyusd-wallet-data",
         JSON.stringify({
           account: accounts[0],
-          balance,
+          balance: shouldUseMock || useTestMode ? "10000" : balance,
           isMockContract: shouldUseMock,
           useTestMode,
         }),
       )
 
+      // Make contract available to other components
+      window.pyusdContract = activeContract
+
       // Dispatch event for other components
       window.dispatchEvent(new Event("pyusd-wallet-connected"))
+
+      return activeContract
     } catch (err) {
       console.error("Connection error:", err)
+      throw err
     }
   }
 
@@ -355,6 +392,12 @@ export function WalletProvider({ children }) {
     // Clear stored wallet data
     localStorage.removeItem("pyusd-wallet-data")
 
+    // remove from window
+
+    if (window.pyusdContract) {
+        delete window.pyusdContract
+    }
+
     // Dispatch event for other components
     window.dispatchEvent(new Event("pyusd-wallet-disconnected"))
   }
@@ -371,6 +414,7 @@ export function WalletProvider({ children }) {
         transactions,
         networkName,
         chainId,
+        signer,
         addTransaction,
         toggleTestMode,
         getTestTokens,

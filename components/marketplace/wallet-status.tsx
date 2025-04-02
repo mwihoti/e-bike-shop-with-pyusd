@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { ConnectWalletPrompt } from "@/components/marketplace/connect-wallet-prompt"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Wallet } from "lucide-react"
+import { useWallet } from "@/hooks/use-wallet"
 
 export function WalletStatus({ showBalance = false }) {
   const { isConnected, account, balance, isMockContract, useTestMode, connectWallet } = useWallet()

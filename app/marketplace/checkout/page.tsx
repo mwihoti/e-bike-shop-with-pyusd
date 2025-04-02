@@ -58,12 +58,12 @@ export default function CheckoutPage() {
   const hasEnoughBalance = Number.parseFloat(balance) >= total
 
   const handleCheckout = async () => {
-    if (!isConnected || !pyusdContract) {
+    if (!account || !pyusdContract) {
       setError("Please connect your wallet first")
       return
     }
 
-    if (!hasEnoughBalance && !useTestMode) {
+    if (!hasEnoughBalance && !isMockContract && !useTestMode) {
       setError("Insufficient PYUSD balance")
       return
     }
