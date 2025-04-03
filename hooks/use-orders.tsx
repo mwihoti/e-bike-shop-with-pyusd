@@ -45,10 +45,10 @@ export type Order = {
 // context type
 type OrdersContextType = {
     orders: Order[]
-    addOrder: (order: Omit<Order, "id">) => string
+    addOrder: (order: Omit<Order, "id" | "userId">) => Promise<string>
     getOrder: (id: string) => Order | undefined
-    updateOrderStatus: (id: string, status: OrderStatus) => void
-    addReview: (productId: string, rating: number, comment: string) => void
+    updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>
+    addReview: (productId: string, rating: number, comment: string) => Promise<void>
     getReviews: (productId: string) => ProductReview[]
     hasReviewed: (productId: string) => boolean
 }
@@ -158,7 +158,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode} ) {
 
     
     // Add a new order
-    const addOrder = (order: Omit<Order, "id">) => {
+    const addOrder =  async (order: Omit<Order, "id" | "userId">) => {
        if (!user) {
         throw new Error("User must be authenticated to create an order")
        }
@@ -180,9 +180,9 @@ export function OrdersProvider({ children }: { children: React.ReactNode} ) {
                 })
                 .select()
 
-                if (error) {
-                    console.error("Error creating order in supabase:", error)
-                    throw(error)
+                if (err) {
+                    console.error("Error creating order in supabase:", err)
+                    throw err
                 }
 
 
@@ -211,10 +211,10 @@ export function OrdersProvider({ children }: { children: React.ReactNode} ) {
     }
 
     // update order status
-    const updateOrderStatus = (id: string, status: OrderStatus) => {
+    const updateOrderStatus = async (id: string, status: OrderStatus) => {
        try {
         // update order in supabase
-        const { error} = await supabase.from("orders".update({ status}).eq("id", id))
+        const { error} = await supabase.from("orders").update({ status}).eq("id", id)
 
         if (error) {
             console.error("Error updating order staatus in Supabase:", error)
@@ -230,7 +230,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode} ) {
     }
 
     // Add a product review
-    const addReview = (productId: string, rating: number, comment: string) => {
+    const addReview = async (productId: string, rating: number, comment: string) => {
 
         if (!user || !account) return
 
@@ -275,7 +275,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode} ) {
     }
 
     // Get reviews for a product
-    const getReviews = (productId: string) => {
+    const getReviews =  (productId: string) => {
         return reviews.filter((review) => review.productId === productId )
     }
 
