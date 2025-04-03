@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react"
 import { ethers } from "ethers"
+import { useAuth } from "@/contexts/auth-context"
 
 // PYUSD Token Contract ABI (minimal for balance and transfer)
 const PYUSD_ABI = [
@@ -91,6 +92,7 @@ const WalletContext = createContext({})
 
 // Wallet provider
 export function WalletProvider({ children }) {
+  const { user, isLoading: authLoading, setWalletAddress: setSupabaseWalletAddress } = useAuth()
   const [isConnected, setIsConnected] = useState(false)
   const [account, setAccount] = useState("")
   const [balance, setBalance] = useState("0")
@@ -127,35 +129,32 @@ export function WalletProvider({ children }) {
             setPyusdContract(window.pyusdContract)
           }
 
-          // if we have a connected accounnt but no signer, try to get the signer from window
+          // If we have a connected account but no signer, try to get the signer from window
           if (account && !signer && window.ethereum) {
             const connectSigner = async () => {
-                try {
-                    const provider = new ethers.BrowserProvider(window.ethereum)
-                    const signer = await provider.getSigner()
-                    setSigner(signer)
-                    setProvider(provider)
+              try {
+                const provider = new ethers.BrowserProvider(window.ethereum)
+                const signer = await provider.getSigner()
+                setSigner(signer)
+                setProvider(provider)
 
-                    // create mock contract with the signer
-                    if (isMockContract || useTestMode) {
-                        const mockContract = new MockPYUSDContract(signer)
-                        mockContract._balances[account] = balance
-                        setMockPyusdContract(mockContract)
+                // Create a mock contract with the signer
+                if (isMockContract || useTestMode) {
+                  const mockContract = new MockPYUSDContract(signer)
+                  mockContract._balances[account] = balance
+                  setMockPyusdContract(mockContract)
 
-
-                        // if in test mode, use the mock contract
-                        if (useTestMode) {
-                            setPyusdContract(mockContract)
-                        }
-                    } 
-                } catch (error) {
-                    console.error("Failed to reconnect signer:", error)
+                  // If in test mode, use the mock contract
+                  if (useTestMode) {
+                    setPyusdContract(mockContract)
+                  }
                 }
+              } catch (error) {
+                console.error("Failed to reconnect signer:", error)
+              }
             }
             connectSigner()
           }
-
-          // If we have have a connected account but no signer, try to get the signer from window
         } catch (error) {
           console.error("Failed to parse wallet data from localStorage:", error)
         }
@@ -192,6 +191,14 @@ export function WalletProvider({ children }) {
     if (newTestMode) {
       if (mockPyusdContract) {
         setPyusdContract(mockPyusdContract)
+      } else if (signer) {
+        // Create a new mock contract if needed
+        const mockContract = new MockPYUSDContract(signer)
+        if (account) {
+          mockContract._balances[account] = "10000"
+        }
+        setMockPyusdContract(mockContract)
+        setPyusdContract(mockContract)
       }
     } else {
       if (realPyusdContract) {
@@ -205,16 +212,16 @@ export function WalletProvider({ children }) {
         "pyusd-wallet-data",
         JSON.stringify({
           account,
-          balance,
+          balance: newTestMode ? "10000" : balance,
           isMockContract,
           useTestMode: newTestMode,
         }),
       )
-    }
 
-    // Update balance based on the selected mode
-    if (account && signer) {
-      updateBalance(newTestMode ? mockPyusdContract : realPyusdContract, account)
+      // If switching to test mode, update balance
+      if (newTestMode) {
+        setBalance("10000")
+      }
     }
   }
 
@@ -305,6 +312,12 @@ export function WalletProvider({ children }) {
       return
     }
 
+    // Check if user is authenticated
+    if (!user) {
+      console.error("User must be authenticated before connecting wallet")
+      throw new Error("Please login before connecting your wallet")
+    }
+
     try {
       // Request account access
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
@@ -327,6 +340,9 @@ export function WalletProvider({ children }) {
       setAccount(accounts[0])
       setIsConnected(true)
 
+      // Store wallet address in Supabase user metadata
+      await setSupabaseWalletAddress(accounts[0])
+
       // Determine if we should use a real contract or mock
       const shouldUseMock = currentChainId !== 1 || !PYUSD_ADDRESSES[currentChainId]
       setIsMockContract(shouldUseMock)
@@ -341,6 +357,7 @@ export function WalletProvider({ children }) {
 
       // Always create a mock contract for testing
       const mockContract = new MockPYUSDContract(ethersSigner)
+      mockContract._balances[accounts[0]] = "10000" // Set initial balance
       setMockPyusdContract(mockContract)
 
       // Set the active contract based on network and test mode
@@ -348,7 +365,11 @@ export function WalletProvider({ children }) {
       setPyusdContract(activeContract)
 
       // Get PYUSD balance
-      await updateBalance(activeContract, accounts[0])
+      if (shouldUseMock || useTestMode) {
+        setBalance("10000") // Set a default balance for test mode
+      } else {
+        await updateBalance(activeContract, accounts[0])
+      }
 
       // Store wallet data for other components
       localStorage.setItem(
@@ -392,10 +413,9 @@ export function WalletProvider({ children }) {
     // Clear stored wallet data
     localStorage.removeItem("pyusd-wallet-data")
 
-    // remove from window
-
+    // Remove from window
     if (window.pyusdContract) {
-        delete window.pyusdContract
+      delete window.pyusdContract
     }
 
     // Dispatch event for other components
