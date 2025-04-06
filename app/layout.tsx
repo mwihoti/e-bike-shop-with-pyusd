@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { WalletProvider } from "@/hooks/use-wallet"
 import { OrdersProvider } from "@/hooks/use-orders";
 import { CartProvider } from "@/hooks/use-cart"
-import { AuthProvider } from "@/contexts/auth-context"
+import { AuthProvider } from "@/hooks/use-auth"
 
 
 const geistSans = Geist({

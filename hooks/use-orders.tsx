@@ -4,7 +4,7 @@ import type React from "react"
 
 import { createContext, useContext, useState, useEffect } from "react"
 import { useWallet } from "@/hooks/use-wallet"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase"
 
 // Order status types
@@ -29,7 +29,6 @@ export type Order = {
   address: string
   transactionHash: string
   isTestPurchase: boolean
-  userId: string
   trackingInfo?: {
     carrier?: string
     trackingNumber?: string
@@ -45,10 +44,10 @@ export type Order = {
 // Context type
 type OrdersContextType = {
   orders: Order[]
-  addOrder: (order: Omit<Order, "id" | "userId">) => Promise<string>
+  addOrder: (order: Omit<Order, "id">) => string
   getOrder: (id: string) => Order | undefined
-  updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>
-  addReview: (productId: string, rating: number, comment: string) => Promise<void>
+  updateOrderStatus: (id: string, status: OrderStatus) => void
+  addReview: (productId: string, rating: number, comment: string) => void
   getReviews: (productId: string) => ProductReview[]
   hasReviewed: (productId: string) => boolean
 }
@@ -58,7 +57,6 @@ export type ProductReview = {
   id: string
   productId: string
   userAddress: string
-  userId: string
   rating: number
   comment: string
   timestamp: number
@@ -67,10 +65,10 @@ export type ProductReview = {
 // Create context
 const OrdersContext = createContext<OrdersContextType>({
   orders: [],
-  addOrder: async () => "",
+  addOrder: () => "",
   getOrder: () => undefined,
-  updateOrderStatus: async () => {},
-  addReview: async () => {},
+  updateOrderStatus: () => {},
+  addReview: () => {},
   getReviews: () => [],
   hasReviewed: () => false,
 })
@@ -78,127 +76,252 @@ const OrdersContext = createContext<OrdersContextType>({
 // Provider component
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const { account } = useWallet()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [orders, setOrders] = useState<Order[]>([])
   const [reviews, setReviews] = useState<ProductReview[]>([])
   const [isMounted, setIsMounted] = useState(false)
-  const supabase = createClient()
 
-  // Fetch orders from Supabase on mount
+  // Load orders from localStorage or Supabase on mount
   useEffect(() => {
     setIsMounted(true)
 
-    const fetchOrders = async () => {
-      if (!user) return
-
-      try {
-        // Fetch orders from Supabase
-        const { data: ordersData, error } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-
-        if (error) {
-          console.error("Error fetching orders from Supabase:", error)
-          return
+    if (typeof window !== "undefined") {
+      // If not authenticated, load from localStorage
+      if (!isAuthenticated) {
+        // Load orders
+        const storedOrders = localStorage.getItem("pyusd-orders")
+        if (storedOrders) {
+          try {
+            setOrders(JSON.parse(storedOrders))
+          } catch (error) {
+            console.error("Failed to parse orders from localStorage:", error)
+          }
         }
 
-        if (ordersData) {
-          // Format the orders
-          const formattedOrders = ordersData.map((order) => ({
-            id: order.id,
-            items: JSON.parse(order.items),
-            total: order.total,
-            status: order.status as OrderStatus,
-            timestamp: new Date(order.created_at).getTime(),
-            address: order.wallet_address,
-            transactionHash: order.transaction_hash,
-            isTestPurchase: order.is_test_purchase,
-            userId: order.user_id,
-            trackingInfo: order.tracking_info ? JSON.parse(order.tracking_info) : undefined,
-          }))
-
-          setOrders(formattedOrders)
+        // Load reviews
+        const storedReviews = localStorage.getItem("pyusd-reviews")
+        if (storedReviews) {
+          try {
+            setReviews(JSON.parse(storedReviews))
+          } catch (error) {
+            console.error("Failed to parse reviews from localStorage:", error)
+          }
         }
-
-        // Fetch reviews
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from("product_reviews")
-          .select("*")
-          .order("created_at", { ascending: false })
-
-        if (reviewsError) {
-          console.error("Error fetching reviews from Supabase:", reviewsError)
-          return
-        }
-
-        if (reviewsData) {
-          // Format the reviews
-          const formattedReviews = reviewsData.map((review) => ({
-            id: review.id,
-            productId: review.product_id,
-            userAddress: review.wallet_address,
-            userId: review.user_id,
-            rating: review.rating,
-            comment: review.comment,
-            timestamp: new Date(review.created_at).getTime(),
-          }))
-
-          setReviews(formattedReviews)
-        }
-      } catch (err) {
-        console.error("Error in order fetching:", err)
+      } else {
+        // If authenticated, load from Supabase
+        fetchOrdersFromSupabase()
+        fetchReviewsFromSupabase()
       }
     }
+  }, [isAuthenticated, user])
 
-    if (isMounted && user) {
-      fetchOrders()
-    }
-  }, [user, isMounted])
-
-  // Add a new order
-  const addOrder = async (order: Omit<Order, "id" | "userId">) => {
-    if (!user) {
-      throw new Error("User must be authenticated to create an order")
-    }
+  // Fetch orders from Supabase
+  const fetchOrdersFromSupabase = async () => {
+    if (!user) return
 
     try {
-      // Insert order into Supabase
-      const { data, error } = await supabase
+      // First, check if the orders table exists
+      const { error: checkError } = await createClient().from("orders").select("id").limit(1)
+
+      if (checkError) {
+        if (checkError.code === "42P01") {
+          console.warn("Orders table does not exist yet. This is normal if you haven't created it.")
+          return // Exit gracefully
+        }
+      }
+
+      // Fetch orders without the nested query first
+      const { data: ordersData, error: ordersError } = await createClient()
+        .from("orders")
+        .select(`
+          id,
+          total,
+          status,
+          created_at,
+          transaction_hash,
+          is_test_purchase,
+          tracking_info
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+
+      if (ordersError) {
+        throw ordersError
+      }
+
+      // Now fetch order items separately
+      const orderIds = ordersData.map((order) => order.id)
+      let orderItems = []
+
+      if (orderIds.length > 0) {
+        try {
+          const { data: itemsData, error: itemsError } = await createClient()
+            .from("order_items")
+            .select("*")
+            .in("order_id", orderIds)
+
+          if (!itemsError) {
+            orderItems = itemsData || []
+          }
+        } catch (error) {
+          console.warn("Error fetching order items:", error)
+        }
+      }
+
+      // Transform data to match our Order type
+      const transformedOrders = ordersData.map((order) => ({
+        id: order.id,
+        total: order.total,
+        status: order.status as OrderStatus,
+        timestamp: new Date(order.created_at).getTime(),
+        address: user.id, // Use user ID as address
+        transactionHash: order.transaction_hash,
+        isTestPurchase: order.is_test_purchase,
+        trackingInfo: order.tracking_info,
+        items:
+          orderItems
+            .filter((item) => item.order_id === order.id)
+            .map((item) => ({
+              id: item.product_id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              image: item.image,
+            })) || [],
+      }))
+
+      setOrders(transformedOrders)
+    } catch (error) {
+      console.error("Error fetching orders from Supabase:", error)
+    }
+  }
+
+  // Fetch reviews from Supabase
+  const fetchReviewsFromSupabase = async () => {
+    if (!user) return
+
+    try {
+      // First, check if the reviews table exists
+      const { error: checkError } = await createClient().from("reviews").select("id").limit(1)
+
+      if (checkError) {
+        if (checkError.code === "42P01" || checkError.status === 404) {
+          console.warn("Reviews table does not exist yet. This is normal if you haven't created it.")
+          return // Exit gracefully
+        }
+      }
+
+      const { data: reviewsData, error: reviewsError } = await createClient()
+        .from("reviews")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (reviewsError) {
+        throw reviewsError
+      }
+
+      // Transform data to match our ProductReview type
+      const transformedReviews = reviewsData.map((review) => ({
+        id: review.id,
+        productId: review.product_id,
+        userAddress: review.user_id,
+        rating: review.rating,
+        comment: review.comment,
+        timestamp: new Date(review.created_at).getTime(),
+      }))
+
+      setReviews(transformedReviews)
+    } catch (error) {
+      console.error("Error fetching reviews from Supabase:", error)
+    }
+  }
+
+  // Save orders to localStorage when they change
+  useEffect(() => {
+    if (isMounted && typeof window !== "undefined" && !isAuthenticated) {
+      localStorage.setItem("pyusd-orders", JSON.stringify(orders))
+    }
+  }, [orders, isMounted, isAuthenticated])
+
+  // Save reviews to localStorage when they change
+  useEffect(() => {
+    if (isMounted && typeof window !== "undefined" && !isAuthenticated) {
+      localStorage.setItem("pyusd-reviews", JSON.stringify(reviews))
+    }
+  }, [reviews, isMounted, isAuthenticated])
+
+  // Add a new order
+  const addOrder = (order: Omit<Order, "id">) => {
+    const id = `order-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    const newOrder = { ...order, id }
+
+    // Add to state
+    setOrders((prevOrders) => [newOrder, ...prevOrders])
+
+    // If authenticated, save to Supabase
+    if (isAuthenticated && user) {
+      saveOrderToSupabase(newOrder)
+    }
+
+    return id
+  }
+
+  // Save order to Supabase
+  const saveOrderToSupabase = async (order: Order) => {
+    if (!user) return
+
+    try {
+      // First, check if the orders table exists
+      const { error: checkError } = await createClient().from("orders").select("id").limit(1)
+
+      if (checkError) {
+        if (checkError.code === "42P01" || checkError.status === 404) {
+          console.warn("Orders table does not exist yet. Using local storage instead.")
+          return // Exit gracefully and use localStorage
+        }
+      }
+
+      // Insert order
+      const { error: orderError } = await createClient()
         .from("orders")
         .insert({
+          id: order.id,
           user_id: user.id,
-          items: JSON.stringify(order.items),
           total: order.total,
           status: order.status,
-          wallet_address: order.address,
+          created_at: new Date(order.timestamp).toISOString(),
           transaction_hash: order.transactionHash,
           is_test_purchase: order.isTestPurchase,
-          tracking_info: order.trackingInfo ? JSON.stringify(order.trackingInfo) : null,
+          tracking_info: order.trackingInfo,
         })
-        .select()
 
-      if (error) {
-        console.error("Error creating order in Supabase:", error)
-        throw error
+      if (orderError) throw orderError
+
+      // Check if order_items table exists
+      const { error: checkItemsError } = await createClient().from("order_items").select("id").limit(1)
+
+      if (checkItemsError) {
+        if (checkItemsError.code === "42P01" || checkItemsError.status === 404) {
+          console.warn("Order_items table does not exist yet. Using local storage for items.")
+          return // Exit gracefully for items
+        }
       }
 
-      const newOrderId = data[0].id
+      // Insert order items
+      const orderItems = order.items.map((item) => ({
+        order_id: order.id,
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.price,
+        name: item.name,
+        image: item.image,
+      }))
 
-      // Add the order to the local state
-      const newOrder = {
-        ...order,
-        id: newOrderId,
-        userId: user.id,
-      }
+      const { error: itemsError } = await createClient().from("order_items").insert(orderItems)
 
-      setOrders((prevOrders) => [newOrder, ...prevOrders])
-
-      return newOrderId
-    } catch (err) {
-      console.error("Error adding order:", err)
-      throw err
+      if (itemsError) throw itemsError
+    } catch (error) {
+      console.error("Error saving order to Supabase:", error)
     }
   }
 
@@ -208,63 +331,90 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Update order status
-  const updateOrderStatus = async (id: string, status: OrderStatus) => {
-    try {
-      // Update order in Supabase
-      const { error } = await supabase.from("orders").update({ status }).eq("id", id)
+  const updateOrderStatus = (id: string, status: OrderStatus) => {
+    // Update in state
+    setOrders((prevOrders) => prevOrders.map((order) => (order.id === id ? { ...order, status } : order)))
 
-      if (error) {
-        console.error("Error updating order status in Supabase:", error)
-        throw error
+    // If authenticated, update in Supabase
+    if (isAuthenticated && user) {
+      updateOrderStatusInSupabase(id, status)
+    }
+  }
+
+  // Update order status in Supabase
+  const updateOrderStatusInSupabase = async (id: string, status: OrderStatus) => {
+    try {
+      // First, check if the orders table exists
+      const { error: checkError } = await createClient().from("orders").select("id").limit(1)
+
+      if (checkError) {
+        if (checkError.code === "42P01" || checkError.status === 404) {
+          console.warn("Orders table does not exist yet. Using local storage instead.")
+          return // Exit gracefully
+        }
       }
 
-      // Update local state
-      setOrders((prevOrders) => prevOrders.map((order) => (order.id === id ? { ...order, status } : order)))
-    } catch (err) {
-      console.error("Error updating order status:", err)
-      throw err
+      const { error } = await createClient().from("orders").update({ status }).eq("id", id)
+
+      if (error) throw error
+    } catch (error) {
+      console.error("Error updating order status in Supabase:", error)
     }
   }
 
   // Add a product review
-  const addReview = async (productId: string, rating: number, comment: string) => {
-    if (!user || !account) return
+  const addReview = (productId: string, rating: number, comment: string) => {
+    if (!account && !user) return
+
+    const userAddress = user?.id || account
+
+    const newReview: ProductReview = {
+      id: `review-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      productId,
+      userAddress,
+      rating,
+      comment,
+      timestamp: Date.now(),
+    }
+
+    // Add to state
+    setReviews((prevReviews) => [newReview, ...prevReviews])
+
+    // If authenticated, save to Supabase
+    if (isAuthenticated && user) {
+      saveReviewToSupabase(newReview)
+    }
+  }
+
+  // Save review to Supabase
+  const saveReviewToSupabase = async (review: ProductReview) => {
+    if (!user) return
 
     try {
-      // Insert review into Supabase
-      const { data, error } = await supabase
-        .from("product_reviews")
+      // First, check if the reviews table exists
+      const { error: checkError } = await createClient().from("reviews").select("id").limit(1)
+
+      if (checkError) {
+        if (checkError.code === "42P01" || checkError.status === 404) {
+          console.warn("Reviews table does not exist yet. Using local storage instead.")
+          return // Exit gracefully
+        }
+      }
+
+      const { error } = await createClient()
+        .from("reviews")
         .insert({
-          product_id: productId,
+          id: review.id,
           user_id: user.id,
-          wallet_address: account,
-          rating,
-          comment,
+          product_id: review.productId,
+          rating: review.rating,
+          comment: review.comment,
+          created_at: new Date(review.timestamp).toISOString(),
         })
-        .select()
 
-      if (error) {
-        console.error("Error creating review in Supabase:", error)
-        throw error
-      }
-
-      const reviewId = data[0].id
-
-      // Add to local state
-      const newReview: ProductReview = {
-        id: reviewId,
-        productId,
-        userAddress: account,
-        userId: user.id,
-        rating,
-        comment,
-        timestamp: Date.now(),
-      }
-
-      setReviews((prevReviews) => [newReview, ...prevReviews])
-    } catch (err) {
-      console.error("Error adding review:", err)
-      throw err
+      if (error) throw error
+    } catch (error) {
+      console.error("Error saving review to Supabase:", error)
     }
   }
 
@@ -275,8 +425,10 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
 
   // Check if user has already reviewed a product
   const hasReviewed = (productId: string) => {
-    if (!user) return false
-    return reviews.some((review) => review.productId === productId && review.userId === user.id)
+    if (!account && !user) return false
+
+    const userAddress = user?.id || account
+    return reviews.some((review) => review.productId === productId && review.userAddress === userAddress)
   }
 
   return (

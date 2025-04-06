@@ -13,17 +13,28 @@ import { WalletInfo } from "@/components/wallet-info"
 import { Wallet, ArrowLeftRight, History, AlertCircle, AlertTriangle } from "lucide-react"
 import { useWallet } from "@/hooks/use-wallet"
 
-
-
 export function WalletComponent() {
-  const { isConnected, account, balance, isMockContract, useTestMode, networkName, chainId,
-        connectWallet, disconnectWallet, toggleTestMode, getTestTokens, pyusdContract, addTransaction, updateBalance
-           }  = useWallet()
+  const {
+    isConnected,
+    account,
+    balance,
+    isMockContract,
+    useTestMode,
+    networkName,
+    chainId,
+    connectWallet,
+    disconnectWallet,
+    toggleTestMode,
+    getTestTokens,
+    pyusdContract,
+    addTransaction,
+    updateBalance,
+  } = useWallet()
+
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState("")
   const [warning, setWarning] = useState("")
   const [transactions, setTransactions] = useState([])
- 
 
   // Switch to Ethereum Mainnet
   const switchToMainnet = async () => {
@@ -39,6 +50,7 @@ export function WalletComponent() {
       setError("Failed to switch network. Please switch to Ethereum Mainnet manually.")
     }
   }
+
   // Handle connect wallet
   const handleConnectWallet = async () => {
     setIsConnecting(true)
@@ -54,13 +66,14 @@ export function WalletComponent() {
       setIsConnecting(false)
     }
   }
+
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Wallet className="h-6 w-6" />
           PYUSD Wallet
-          {(isMockContract  || useTestMode)&& (
+          {(isMockContract || useTestMode) && (
             <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200">
               Test Mode
             </Badge>
@@ -102,75 +115,78 @@ export function WalletComponent() {
             <p className="mb-4 text-center text-muted-foreground">
               Connect your Ethereum wallet to send and receive PYUSD
             </p>
-            <Button onClick={connectWallet} disabled={isConnecting}>
+            <Button onClick={handleConnectWallet} disabled={isConnecting}>
               {isConnecting ? "Connecting..." : "Connect Wallet"}
             </Button>
           </div>
         ) : (
           <>
-          {/* Test mode Toggle */}
-          <div className="flex items-center justify-center p-3 mb-4 bg-muted rounded-md">
-            <div className="space-y-0.5">
-              <div className="font-medium">Test Mode</div>
-              <div className="text-sm text-muted-foreground">Use simulated PYUSD tokens for testing</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={useTestMode || isMockContract}
-                onCheckedChange={toggleTestMode}
-                disabled={isMockContract} // disabled if already using mock contract
+            {/* Test Mode Toggle */}
+            <div className="flex items-center justify-between mb-4 p-3 bg-muted rounded-md">
+              <div className="space-y-0.5">
+                <div className="font-medium">Test Mode</div>
+                <div className="text-sm text-muted-foreground">Use simulated PYUSD tokens for testing</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={useTestMode || isMockContract}
+                  onCheckedChange={toggleTestMode}
+                  disabled={isMockContract} // Disable if already using mock contract
                 />
-              {(useTestMode || isMockContract) && (
-                <Button variant='outline' size="sm" onClick={getTestTokens}>
-                  Get Test Tokens
-                </Button>
-              )}
-
+                {(useTestMode || isMockContract) && (
+                  <Button variant="outline" size="sm" onClick={getTestTokens}>
+                    Get Test Tokens
+                  </Button>
+                )}
+              </div>
             </div>
 
-          </div>
-          <Tabs defaultValue="wallet" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="wallet">
-                <Wallet className="h-4 w-4 mr-2" />
-                Wallet
-              </TabsTrigger>
-              <TabsTrigger value="send">
-                <ArrowLeftRight className="h-4 w-4 mr-2" />
-                Send
-              </TabsTrigger>
-              <TabsTrigger value="history">
-                <History className="h-4 w-4 mr-2" />
-                History
-              </TabsTrigger>
-            </TabsList>
+            <Tabs defaultValue="wallet" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="wallet">
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Wallet
+                </TabsTrigger>
+                <TabsTrigger value="send">
+                  <ArrowLeftRight className="h-4 w-4 mr-2" />
+                  Send
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  <History className="h-4 w-4 mr-2" />
+                  History
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="wallet">
-              <WalletInfo
-                account={account}
-                balance={balance}
-                networkName={networkName}
-                isMockContract={isMockContract || useTestMode}
-                onDisconnect={disconnectWallet}
-              />
-            </TabsContent>
+              <TabsContent value="wallet">
+                <WalletInfo
+                  account={account}
+                  balance={balance}
+                  networkName={networkName}
+                  isMockContract={isMockContract || useTestMode}
+                  onDisconnect={disconnectWallet}
+                />
+              </TabsContent>
 
-            <TabsContent value="send">
-              <SendTransaction
-                signer={null}
-                pyusdContract={pyusdContract}
-                balance={balance}
-                chainId={chainId}
-                isMockContract={isMockContract || useTestMode}
-                addTransaction={addTransaction}
-                updateBalance={() => updateBalance(pyusdContract, account)}
-              />
-            </TabsContent>
+              <TabsContent value="send">
+                <SendTransaction
+                  signer={null}
+                  pyusdContract={pyusdContract}
+                  balance={balance}
+                  chainId={chainId}
+                  isMockContract={isMockContract || useTestMode}
+                  addTransaction={addTransaction}
+                  updateBalance={() => updateBalance(pyusdContract, account)}
+                />
+              </TabsContent>
 
-            <TabsContent value="history">
-              <TransactionHistory transactions={transactions} provider={null} isMockContract={isMockContract || useTestMode} />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="history">
+                <TransactionHistory
+                  transactions={transactions}
+                  provider={null}
+                  isMockContract={isMockContract || useTestMode}
+                />
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </CardContent>

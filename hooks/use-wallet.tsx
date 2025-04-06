@@ -2,7 +2,10 @@
 
 import { createContext, useContext, useState, useEffect } from "react"
 import { ethers } from "ethers"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase"
+
+const supabase = createClient()
 
 // PYUSD Token Contract ABI (minimal for balance and transfer)
 const PYUSD_ABI = [
@@ -92,7 +95,7 @@ const WalletContext = createContext({})
 
 // Wallet provider
 export function WalletProvider({ children }) {
-  const { user, isLoading: authLoading, setWalletAddress: setSupabaseWalletAddress } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const [isConnected, setIsConnected] = useState(false)
   const [account, setAccount] = useState("")
   const [balance, setBalance] = useState("0")
@@ -107,6 +110,10 @@ export function WalletProvider({ children }) {
   const [signer, setSigner] = useState(null)
   const [chainId, setChainId] = useState(null)
   const [networkName, setNetworkName] = useState("")
+  // Add a connection state flag to prevent multiple connection attempts
+  const [isConnecting, setIsConnecting] = useState(false)
+  // Add a flag to track if wallet has been saved to Supabase
+  const [walletSaved, setWalletSaved] = useState(false)
 
   // Set mounted state
   useEffect(() => {
@@ -174,9 +181,57 @@ export function WalletProvider({ children }) {
     }
   }, [])
 
+  // Effect to save wallet to Supabase when user and account are available
+  useEffect(() => {
+    const saveWalletWhenReady = async () => {
+      if (user && account && isConnected && !walletSaved) {
+        await saveWalletToSupabase(account)
+        setWalletSaved(true)
+      }
+    }
+
+    saveWalletWhenReady()
+  }, [user, account, isConnected, walletSaved])
+
   // Add transaction to history
   const addTransaction = (tx) => {
     setTransactions((prev) => [tx, ...prev])
+
+    // If authenticated, save transaction to Supabase
+    if (user && tx.hash) {
+      saveTransactionToSupabase(tx)
+    }
+  }
+
+  // Save transaction to Supabase
+  const saveTransactionToSupabase = async (tx) => {
+    try {
+      // First, check if the transactions table exists
+      const { error: checkError } = await supabase().from("transactions").select("id").limit(1)
+
+      if (checkError) {
+        if (checkError.code === "42P01" || checkError.status === 404) {
+          console.warn("Transactions table does not exist yet. Using local storage instead.")
+          return // Exit gracefully
+        }
+      }
+
+      const { error } = await supabase()
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          hash: tx.hash,
+          to_address: tx.to,
+          amount: tx.amount,
+          status: tx.status,
+          is_test: tx.isMock,
+          timestamp: new Date(tx.timestamp).toISOString(),
+        })
+
+      if (error) throw error
+    } catch (err) {
+      console.error("Error saving transaction to Supabase:", err)
+    }
   }
 
   // Toggle between real and test tokens
@@ -305,20 +360,26 @@ export function WalletProvider({ children }) {
     }
   }
 
-  // Connect wallet
+  // Update the connectWallet function to prevent multiple connection attempts
   const connectWallet = async () => {
-    if (!window.ethereum) {
-      console.error("No Ethereum wallet detected")
+    // Check if already connecting
+    if (isConnecting) {
+      console.log("Connection already in progress, please wait...")
       return
     }
 
     // Check if user is authenticated
-    if (!user) {
-      console.error("User must be authenticated before connecting wallet")
-      throw new Error("Please login before connecting your wallet")
+    if (!isAuthenticated) {
+      throw new Error("You must be logged in to connect your wallet")
+    }
+
+    if (!window.ethereum) {
+      throw new Error("No Ethereum wallet detected")
     }
 
     try {
+      setIsConnecting(true)
+
       // Request account access
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
 
@@ -339,9 +400,6 @@ export function WalletProvider({ children }) {
       // Set account
       setAccount(accounts[0])
       setIsConnected(true)
-
-      // Store wallet address in Supabase user metadata
-      await setSupabaseWalletAddress(accounts[0])
 
       // Determine if we should use a real contract or mock
       const shouldUseMock = currentChainId !== 1 || !PYUSD_ADDRESSES[currentChainId]
@@ -388,10 +446,124 @@ export function WalletProvider({ children }) {
       // Dispatch event for other components
       window.dispatchEvent(new Event("pyusd-wallet-connected"))
 
+      // Save wallet to Supabase if user is authenticated
+      if (user) {
+        await saveWalletToSupabase(accounts[0])
+        setWalletSaved(true)
+      }
+
+      // After successful wallet connection, set a cookie
+      if (accounts[0]) {
+        // Set a cookie to indicate wallet connection
+        document.cookie = "wallet-connected=true; path=/; max-age=86400" // 24 hours
+      }
+
       return activeContract
     } catch (err) {
       console.error("Connection error:", err)
       throw err
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  // Save wallet to Supabase
+  const saveWalletToSupabase = async (address) => {
+    if (!user || !address) {
+      console.log("Cannot save wallet: missing user or address", { user, address })
+      return
+    }
+
+    try {
+      console.log("Attempting to save wallet to Supabase", { userId: user.id, address })
+
+      // Create the wallets table if it doesn't exist
+      const createWalletsTable = async () => {
+        const { error } = await supabase().rpc("create_wallets_table_if_not_exists")
+        if (error) {
+          console.error("Error creating wallets table:", error)
+          // Try direct SQL approach as fallback
+          await supabase().rpc("execute_sql", {
+            sql_query: `
+              CREATE TABLE IF NOT EXISTS wallets (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+                address TEXT NOT NULL,
+                is_primary BOOLEAN DEFAULT false,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                UNIQUE(user_id, address)
+              );
+            `,
+          })
+        }
+      }
+
+      // First, check if the wallets table exists
+      const { error: checkError } = await supabase().from("wallets").select("id").limit(1)
+
+      if (checkError) {
+        console.log("Wallets table check error:", checkError)
+        if (checkError.code === "42P01" || checkError.status === 404) {
+          console.log("Wallets table does not exist, creating it...")
+          await createWalletsTable()
+        }
+      }
+
+      // Check if wallet already exists
+      const { data: existingWallet, error: existingError } = await supabase()
+        .from("wallets")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("address", address)
+        .single()
+
+      if (existingError && existingError.code !== "PGRST116") {
+        console.error("Error checking existing wallet:", existingError)
+      }
+
+      if (existingWallet) {
+        console.log("Wallet already exists, no need to save", existingWallet)
+        return
+      }
+
+      // Get count of user's wallets
+      const { data: wallets, error: walletsError } = await supabase()
+        .from("wallets")
+        .select("id")
+        .eq("user_id", user.id)
+
+      if (walletsError) {
+        console.error("Error getting user wallets:", walletsError)
+      }
+
+      const isPrimary = !wallets || wallets.length === 0
+
+      console.log("Saving new wallet", {
+        user_id: user.id,
+        address,
+        is_primary: isPrimary,
+        walletsCount: wallets?.length || 0,
+      })
+
+      // Save new wallet with explicit columns
+      const { data, error } = await supabase()
+        .from("wallets")
+        .insert({
+          user_id: user.id,
+          address: address,
+          is_primary: isPrimary,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+
+      if (error) {
+        console.error("Error saving wallet:", error)
+        throw error
+      }
+
+      console.log("Wallet saved successfully:", data)
+    } catch (err) {
+      console.error("Error in saveWalletToSupabase:", err)
     }
   }
 
@@ -409,6 +581,7 @@ export function WalletProvider({ children }) {
     setIsMockContract(false)
     setUseTestMode(false)
     setIsConnected(false)
+    setWalletSaved(false)
 
     // Clear stored wallet data
     localStorage.removeItem("pyusd-wallet-data")
