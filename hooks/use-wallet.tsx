@@ -606,6 +606,35 @@ export function WalletProvider({ children }) {
     window.dispatchEvent(new Event("pyusd-wallet-disconnected"))
   }
 
+  // Add this function to monitor PYUSD transactions
+  const monitorPyusdTransaction = async (tx) => {
+    console.log("PYUSD Transaction initiated:", {
+      hash: tx.hash,
+      to: tx.to,
+      from: await signer.getAddress(),
+      data: tx.data?.substring(0, 66) + "...", // Truncate for readability
+    })
+
+    try {
+      // Log which RPC endpoint is processing this transaction
+      console.log("Transaction being processed by:", provider.connection?.url || "Default provider")
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait()
+      console.log("PYUSD Transaction confirmed:", {
+        hash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+        status: receipt.status === 1 ? "Success" : "Failed",
+      })
+
+      return receipt
+    } catch (error) {
+      console.error("PYUSD Transaction failed:", error)
+      throw error
+    }
+  }
+
   return (
     <WalletContext.Provider
       value={{
@@ -625,6 +654,7 @@ export function WalletProvider({ children }) {
         connectWallet,
         disconnectWallet,
         updateBalance,
+        monitorPyusdTransaction,
       }}
     >
       {children}
