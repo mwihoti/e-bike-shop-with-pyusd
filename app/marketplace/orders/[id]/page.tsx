@@ -50,10 +50,12 @@ export default function OrderDetailsPage() {
   // Check if this order belongs to the current user
   const isUserOrder = account && order.address.toLowerCase() === account.toLowerCase()
 
+  {/*
   if (!isConnected || !isUserOrder) {
     router.push("/marketplace/orders")
     return null
   }
+    */}
 
   // Format date
   const formatDate = (timestamp) => {
