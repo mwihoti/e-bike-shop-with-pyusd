@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Store, ShoppingCart, User, LogOut, ShoppingBag } from "lucide-react"
 import Link from "next/link"
+import { WalletStatus } from "./wallet-status"
 
 export function MarketplaceHeader() {
   const { user, signOut } = useAuth()
@@ -50,6 +51,8 @@ export function MarketplaceHeader() {
         </div>
 
         <div className="flex items-center gap-4">
+            <WalletStatus />
+          
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" className="relative">
@@ -62,6 +65,11 @@ export function MarketplaceHeader() {
               <CartSummary />
             </SheetContent>
           </Sheet>
+          <div>
+          <Link href="/">
+              <Button variant="ghost">Home</Button>
+            </Link>
+            </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

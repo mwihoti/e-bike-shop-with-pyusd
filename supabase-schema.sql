@@ -72,3 +72,62 @@ CREATE TRIGGER update_orders_updated_at
 BEFORE UPDATE ON public.orders
 FOR EACH ROW
 EXECUTE PROCEDURE update_updated_at_column()
+
+-- create a function to create the wallets table if it doesn't exist
+CREATE OR REPLACE FUNCTION create_wallets_table_if_not_exists()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+
+    -- Check if the table exists
+    IF NOT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename = 'wallets'
+     ) THEN
+        --Create the wallets table
+        CREATE TABLE public.wallets (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            address TEXT NOT NULL,
+            is_primary BOOLEAN DEFAULT false,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            UNIQUE(user_id, address)
+        );
+        --Add RLS policies
+        ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
+
+        --Policy for users to see their own wallets
+        CREATE POLICY "Users can view their own wallets"
+            ON public.wallets
+            FOR SELECT
+            USING (auth.uid() = user_id);
+
+        -- Policy for users to insert their own wallets
+        CREATE POLICY "Users can insert their own wallets"
+        ON public.wallets
+        FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+        
+        -- policy for users to update their own wallets
+        CREATE POLICY "User can update their own wallets"
+        ON public.wallets
+        FOR UPDATE
+        USING (auth.uid() = user_id);
+    END IF;
+END;
+$$;
+
+
+-- CREATE A FUNCTION TO EXECUTE ARBITARY SQL (for callback)
+CREATE OR REPLACE FUNCTION execute_sql(sql_query TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    EXECUTE sql_query;
+END;
+$$;
