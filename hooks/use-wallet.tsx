@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect } from "react"
 import { ethers } from "ethers"
 import { useAuth } from "@/hooks/use-auth"
 import { createClient } from "@/lib/supabase"
+import { monitorRpcConnection, verifyRpcEndpoint } from "@/utils/rpc-monitor"
 
 const supabase = createClient()
 
@@ -385,11 +386,17 @@ export function WalletProvider({ children }) {
 
       // Create ethers provider
       // const ethersProvider = new ethers.BrowserProvider(window.ethereum)
+      const ethersProvider = new ethers.BrowserProvider(window.ethereum)
+      // Monitor RPC connections
+      const monitoredProvider = monitorRpcConnection(ethersProvider)
+      // Verify the RPC endpoint
+      await verifyRpcEndpoint(monitoredProvider, "https://YOUR_EXPECTED_GCP_RPC_ENDPOINT")
+      setProvider(monitoredProvider)
       // Create ethers provider with GCP's Blockchain RPC Service
-      const ethersProvider = new ethers.JsonRpcProvider("https://YOUR_GCP_RPC_ENDPOINT")
+      // const ethersProvider = new ethers.JsonRpcProvider("https://YOUR_GCP_RPC_ENDPOINT")
       // Or if using window.ethereum but want to configure it to use GCP:
-      window.ethereum.setRpcTarget("https://YOUR_GCP_RPC_ENDPOINT")
-      setProvider(ethersProvider)
+      // window.ethereum.setRpcTarget("https://YOUR_GCP_RPC_ENDPOINT")
+      // setProvider(ethersProvider)
 
       // Get network information
       const network = await ethersProvider.getNetwork()
