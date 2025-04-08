@@ -384,7 +384,11 @@ export function WalletProvider({ children }) {
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" })
 
       // Create ethers provider
-      const ethersProvider = new ethers.BrowserProvider(window.ethereum)
+      // const ethersProvider = new ethers.BrowserProvider(window.ethereum)
+      // Create ethers provider with GCP's Blockchain RPC Service
+      const ethersProvider = new ethers.JsonRpcProvider("https://YOUR_GCP_RPC_ENDPOINT")
+      // Or if using window.ethereum but want to configure it to use GCP:
+      window.ethereum.setRpcTarget("https://YOUR_GCP_RPC_ENDPOINT")
       setProvider(ethersProvider)
 
       // Get network information
