@@ -369,10 +369,7 @@ export function WalletProvider({ children }) {
       return
     }
 
-    // Check if user is authenticated
-    if (!isAuthenticated) {
-      throw new Error("You must be logged in to connect your wallet")
-    }
+   
 
     if (!window.ethereum) {
       throw new Error("No Ethereum wallet detected")

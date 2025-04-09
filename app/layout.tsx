@@ -7,7 +7,7 @@ import { WalletProvider } from "@/hooks/use-wallet"
 import { OrdersProvider } from "@/hooks/use-orders";
 import { CartProvider } from "@/hooks/use-cart"
 import { AuthProvider } from "@/hooks/use-auth"
-
+import { BlockchainNavbar } from "@/components/blockchain-navbar"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +39,7 @@ export default function RootLayout({
         <WalletProvider>
           <OrdersProvider>
           <CartProvider>
+          <BlockchainNavbar />
           {children}
 
           </CartProvider>

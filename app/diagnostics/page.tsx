@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { verifyRpcEndpoint } from "@/utils/rpc-monitor"
 import { useWallet } from "@/hooks/use-wallet"
 import { AlertCircle, CheckCircle, Loader2, Wallet } from "lucide-react"
+import { createAdvancedProvider } from "@/utils/advanced-rpc"
 
 export default function DiagnosticsPage() {
   const { isConnected, account, provider, chainId, networkName, connectWallet } = useWallet()
@@ -31,32 +32,56 @@ export default function DiagnosticsPage() {
     setResults(null)
 
     try {
-      if (!provider) {
-        throw new Error("Wallet not connected. Please connect your wallet first.")
+      // Create a provider even if wallet is not connected
+      let diagnosticProvider
+      let connectionInfo = {
+        chainId: null,
+        networkName: "Not connected",
+        isConnected: false,
+        account: null,
       }
 
-      // Basic provider info
-      const connectionInfo = {
-        chainId: chainId,
-        networkName: networkName,
-        isConnected: isConnected,
-        account: account,
+      if (isConnected && provider) {
+        // Use the connected wallet's provider if available
+        diagnosticProvider = provider
+        connectionInfo = {
+          chainId: chainId,
+          networkName: networkName,
+          isConnected: isConnected,
+          account: account,
+        }
+      } else {
+        // Create a fallback provider using the utility function
+        diagnosticProvider = createAdvancedProvider()
+
+        // Try to get network info from the fallback provider
+        try {
+          const network = await diagnosticProvider.getNetwork()
+          connectionInfo = {
+            chainId: Number(network.chainId),
+            networkName: network.name === "homestead" ? "Ethereum Mainnet" : network.name,
+            isConnected: false,
+            account: null,
+          }
+        } catch (networkErr) {
+          console.error("Failed to get network info:", networkErr)
+        }
       }
 
       // Check block information
-      const blockNumber = await provider.getBlockNumber()
-      const block = await provider.getBlock(blockNumber)
+      const blockNumber = await diagnosticProvider.getBlockNumber()
+      const block = await diagnosticProvider.getBlock(blockNumber)
 
       // Check gas price
-      const gasPrice = await provider.getFeeData()
+      const gasPrice = await diagnosticProvider.getFeeData()
 
       // Verify RPC endpoint
-      const isRpcValid = await verifyRpcEndpoint(provider)
+      const isRpcValid = await verifyRpcEndpoint(diagnosticProvider)
 
       // Get node information if possible
       let nodeInfo = null
       try {
-        const clientVersion = await provider.send("web3_clientVersion", [])
+        const clientVersion = await diagnosticProvider.send("web3_clientVersion", [])
         nodeInfo = { clientVersion }
       } catch (e) {
         nodeInfo = { error: "Could not retrieve node information" }
@@ -116,15 +141,31 @@ export default function DiagnosticsPage() {
             </Alert>
           )}
 
-          {!isConnected ? (
-            <div className="space-y-4">
+          <div className="space-y-4">
+            {!isConnected && (
               <Alert className="mb-4">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>You need to connect your wallet first to check the RPC connection.</AlertDescription>
+                <AlertDescription>
+                  You can check basic RPC connection without a wallet, but connecting your wallet will provide more
+                  detailed information.
+                </AlertDescription>
               </Alert>
+            )}
 
-              <div className="flex justify-center">
-                <Button onClick={handleConnectWallet} disabled={isConnecting}>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button onClick={checkRpcConnection} disabled={isChecking} className="flex-1">
+                {isChecking ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  "Check RPC Connection"
+                )}
+              </Button>
+
+              {!isConnected && (
+                <Button onClick={handleConnectWallet} disabled={isConnecting} className="flex-1">
                   {isConnecting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -137,102 +178,87 @@ export default function DiagnosticsPage() {
                     </>
                   )}
                 </Button>
-              </div>
+              )}
             </div>
-          ) : (
-            <>
-              <div className="mb-4">
-                <Button onClick={checkRpcConnection} disabled={isChecking}>
-                  {isChecking ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    "Check RPC Connection"
-                  )}
-                </Button>
-              </div>
 
-              {results && (
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">Connection Info</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-sm text-muted-foreground">Chain ID:</div>
-                      <div>{results.connectionInfo.chainId}</div>
+            {results && (
+              <div className="space-y-4 mt-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Connection Info</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-sm text-muted-foreground">Chain ID:</div>
+                    <div>{results.connectionInfo.chainId || "Not available"}</div>
 
-                      <div className="text-sm text-muted-foreground">Network:</div>
-                      <div>{results.connectionInfo.networkName}</div>
+                    <div className="text-sm text-muted-foreground">Network:</div>
+                    <div>{results.connectionInfo.networkName || "Not available"}</div>
 
-                      <div className="text-sm text-muted-foreground">Connected Account:</div>
-                      <div className="font-mono text-sm">{results.connectionInfo.account}</div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-semibold mb-2">Block Info</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-sm text-muted-foreground">Latest Block:</div>
-                      <div>{results.blockInfo.number}</div>
-
-                      <div className="text-sm text-muted-foreground">Block Time:</div>
-                      <div>{results.blockInfo.timestamp}</div>
-
-                      <div className="text-sm text-muted-foreground">Block Hash:</div>
-                      <div className="font-mono text-xs truncate">{results.blockInfo.hash}</div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-semibold mb-2">Gas Info</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-sm text-muted-foreground">Gas Price:</div>
-                      <div>{results.gasInfo.gasPrice}</div>
-
-                      <div className="text-sm text-muted-foreground">Max Fee Per Gas:</div>
-                      <div>{results.gasInfo.maxFeePerGas}</div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div>
-                    <h3 className="font-semibold mb-2">Node Info</h3>
-                    {results.nodeInfo.clientVersion ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="text-sm text-muted-foreground">Client Version:</div>
-                        <div className="font-mono text-xs">{results.nodeInfo.clientVersion}</div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{results.nodeInfo.error}</p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex items-center">
-                    <Badge
-                      variant={results.isRpcValid ? "outline" : "destructive"}
-                      className={results.isRpcValid ? "bg-green-50 text-green-800 border-green-200" : ""}
-                    >
-                      {results.isRpcValid ? (
-                        <>
-                          <CheckCircle className="h-3 w-3 mr-1" /> RPC Connection Valid
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="h-3 w-3 mr-1" /> RPC Connection Issues
-                        </>
-                      )}
-                    </Badge>
+                    <div className="text-sm text-muted-foreground">Connected Account:</div>
+                    <div className="font-mono text-sm">{results.connectionInfo.account || "No wallet connected"}</div>
                   </div>
                 </div>
-              )}
-            </>
-          )}
+
+                <Separator />
+
+                <div>
+                  <h3 className="font-semibold mb-2">Block Info</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-sm text-muted-foreground">Latest Block:</div>
+                    <div>{results.blockInfo.number}</div>
+
+                    <div className="text-sm text-muted-foreground">Block Time:</div>
+                    <div>{results.blockInfo.timestamp}</div>
+
+                    <div className="text-sm text-muted-foreground">Block Hash:</div>
+                    <div className="font-mono text-xs truncate">{results.blockInfo.hash}</div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h3 className="font-semibold mb-2">Gas Info</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-sm text-muted-foreground">Gas Price:</div>
+                    <div>{results.gasInfo.gasPrice}</div>
+
+                    <div className="text-sm text-muted-foreground">Max Fee Per Gas:</div>
+                    <div>{results.gasInfo.maxFeePerGas}</div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h3 className="font-semibold mb-2">Node Info</h3>
+                  {results.nodeInfo.clientVersion ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="text-sm text-muted-foreground">Client Version:</div>
+                      <div className="font-mono text-xs">{results.nodeInfo.clientVersion}</div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{results.nodeInfo.error}</p>
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-center">
+                  <Badge
+                    variant={results.isRpcValid ? "outline" : "destructive"}
+                    className={results.isRpcValid ? "bg-green-50 text-green-800 border-green-200" : ""}
+                  >
+                    {results.isRpcValid ? (
+                      <>
+                        <CheckCircle className="h-3 w-3 mr-1" /> RPC Connection Valid
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-3 w-3 mr-1" /> RPC Connection Issues
+                      </>
+                    )}
+                  </Badge>
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

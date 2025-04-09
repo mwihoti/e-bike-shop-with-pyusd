@@ -7,8 +7,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, CheckCircle, ArrowLeft, Code, FileJson, List, Clock } from "lucide-react"
+import { Loader2, AlertCircle, CheckCircle, ArrowLeft, Code, FileJson, List, Clock, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { NetworkStatus } from "@/components/network-status"
 
 export default function TransactionPage() {
   const params = useParams()
@@ -17,6 +18,7 @@ export default function TransactionPage() {
   const [error, setError] = useState<string | null>(null)
   const [txData, setTxData] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("overview")
+  const [retryCount, setRetryCount] = useState(0)
 
   // Get transaction hash from URL
   const txHash = params.hash as string
@@ -45,22 +47,33 @@ export default function TransactionPage() {
     }
 
     fetchTransactionTrace()
-  }, [txHash])
+  }, [txHash, retryCount])
 
   const formatAddress = (address: string) => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`
   }
 
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1)
+  }
+
+  const openEtherscan = () => {
+    window.open(`https://etherscan.io/tx/${txHash}`, "_blank")
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center mb-8">
-        <Link href="/explorer">
-          <Button variant="ghost" className="mr-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Explorer
-          </Button>
-        </Link>
-        <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Transaction Details</h1>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center">
+          <Link href="/explorer">
+            <Button variant="ghost" className="mr-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Explorer
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Transaction Details</h1>
+        </div>
+        <NetworkStatus />
       </div>
 
       {isLoading ? (
@@ -68,10 +81,48 @@ export default function TransactionPage() {
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
       ) : error ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="space-y-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Transaction Not Found</CardTitle>
+              <CardDescription>
+                The transaction hash you provided could not be found on the current network.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">Transaction Hash</h3>
+                <p className="font-mono text-sm break-all">{txHash}</p>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold">Possible Reasons</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                  <li>The transaction may be on a different network than the one you're connected to</li>
+                  <li>The transaction may be too recent and not yet indexed by your RPC provider</li>
+                  <li>The transaction hash may be incorrect</li>
+                  <li>Your RPC provider may be experiencing synchronization issues</li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <Button onClick={handleRetry} className="flex-1">
+                  <Loader2 className="mr-2 h-4 w-4" />
+                  Retry Search
+                </Button>
+                <Button variant="outline" onClick={openEtherscan} className="flex-1">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View on Etherscan
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : txData ? (
         <div className="space-y-6">
           <Card>
@@ -81,38 +132,44 @@ export default function TransactionPage() {
                   <CardTitle>Transaction Hash</CardTitle>
                   <CardDescription className="font-mono break-all">{txData.transaction.hash}</CardDescription>
                 </div>
-                <Badge
-                  variant={
-                    txData.status === "confirmed"
-                      ? txData.receipt.status === 1
-                        ? "outline"
-                        : "destructive"
-                      : "outline"
-                  }
-                  className={
-                    txData.status === "confirmed"
-                      ? txData.receipt.status === 1
-                        ? "bg-green-50 text-green-800 border-green-200"
-                        : ""
-                      : "bg-yellow-50 text-yellow-800 border-yellow-200"
-                  }
-                >
-                  {txData.status === "confirmed" ? (
-                    txData.receipt.status === 1 ? (
-                      <>
-                        <CheckCircle className="h-3 w-3 mr-1" /> Success
-                      </>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      txData.status === "confirmed"
+                        ? txData.receipt.status === 1
+                          ? "outline"
+                          : "destructive"
+                        : "outline"
+                    }
+                    className={
+                      txData.status === "confirmed"
+                        ? txData.receipt.status === 1
+                          ? "bg-green-50 text-green-800 border-green-200"
+                          : ""
+                        : "bg-yellow-50 text-yellow-800 border-yellow-200"
+                    }
+                  >
+                    {txData.status === "confirmed" ? (
+                      txData.receipt.status === 1 ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 mr-1" /> Success
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3 w-3 mr-1" /> Failed
+                        </>
+                      )
                     ) : (
                       <>
-                        <AlertCircle className="h-3 w-3 mr-1" /> Failed
+                        <Clock className="h-3 w-3 mr-1" /> Pending
                       </>
-                    )
-                  ) : (
-                    <>
-                      <Clock className="h-3 w-3 mr-1" /> Pending
-                    </>
-                  )}
-                </Badge>
+                    )}
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={openEtherscan}>
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Etherscan
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -163,12 +220,26 @@ export default function TransactionPage() {
                 )}
                 <div>
                   <div className="font-medium">From:</div>
-                  <div className="font-mono text-sm">{txData.transaction.from}</div>
+                  <div className="font-mono text-sm">
+                    <Link href={`/explorer/address/${txData.transaction.from}`} className="hover:underline">
+                      {txData.transaction.from}
+                    </Link>
+                  </div>
                 </div>
                 <div>
                   <div className="font-medium">To:</div>
-                  <div className="font-mono text-sm">{txData.transaction.to}</div>
+                  <div className="font-mono text-sm">
+                    <Link href={`/explorer/address/${txData.transaction.to}`} className="hover:underline">
+                      {txData.transaction.to}
+                    </Link>
+                  </div>
                 </div>
+                {txData.networkInfo && (
+                  <div>
+                    <div className="font-medium">Network:</div>
+                    <div>Chain ID: {txData.networkInfo.chainId.toString()}</div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

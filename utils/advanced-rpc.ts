@@ -5,7 +5,52 @@ const GCP_RPC_ENDPOINT = process.env.NEXT_PUBLIC_GCP_RPC_ENDPOINT || "https://yo
 
 // Create a provider specifically for advanced RPC calls
 export const createAdvancedProvider = () => {
+  // First try to use window.ethereum if available (for connected wallet's network)
+  if (typeof window !== "undefined" && window.ethereum) {
+    try {
+      return new ethers.BrowserProvider(window.ethereum)
+    } catch (e) {
+      console.log("Failed to create provider from window.ethereum, falling back to RPC endpoint")
+    }
+  }
+
+  // Fall back to configured RPC endpoint
   return new ethers.JsonRpcProvider(GCP_RPC_ENDPOINT)
+}
+
+// Create a fallback provider that tries multiple sources
+export const createFallbackProvider = () => {
+  const providers = []
+
+  // Add window.ethereum provider if available
+  if (typeof window !== "undefined" && window.ethereum) {
+    try {
+      providers.push(new ethers.BrowserProvider(window.ethereum))
+    } catch (e) {
+      console.log("Failed to add window.ethereum provider")
+    }
+  }
+
+  // Add configured RPC endpoint
+  providers.push(new ethers.JsonRpcProvider(GCP_RPC_ENDPOINT))
+
+  // Add public Ethereum RPC endpoints as fallbacks
+  providers.push(new ethers.JsonRpcProvider("https://eth.llamarpc.com"))
+  providers.push(new ethers.JsonRpcProvider("https://ethereum.publicnode.com"))
+
+  // If we have multiple providers, create a fallback provider
+  if (providers.length > 1) {
+    return new ethers.FallbackProvider(
+      providers.map((provider, i) => ({
+        provider,
+        priority: providers.length - i,
+        stallTimeout: 2000,
+      })),
+    )
+  }
+
+  // Otherwise just return the first provider
+  return providers[0]
 }
 
 // PYUSD contract address on Ethereum mainnet
@@ -383,49 +428,137 @@ export async function getHistoricalPyusdTransactions(address: string, blockCount
 }
 
 /**
- * Search for a transaction by hash with improved error handling
- * This function will work even without advanced tracing methods
+ * Search for a transaction by hash with improved error handling and fallback mechanisms
+ * This function will try multiple providers to find the transaction
  */
 export async function searchTransactionByHash(txHash: string): Promise<any> {
+  // First try with the primary provider
   const provider = createAdvancedProvider()
 
   try {
-    // First try to get the transaction
-    const tx = await provider.getTransaction(txHash)
+    console.log(`Searching for transaction ${txHash}`)
+
+    // Try to get the transaction
+    let tx = await provider.getTransaction(txHash)
+
+    // If not found with primary provider, try with fallback providers
     if (!tx) {
-      throw new Error("Transaction not found. Please check the transaction hash and network.")
+      console.log("Transaction not found with primary provider, trying fallback providers")
+      const fallbackProvider = createFallbackProvider()
+      tx = await fallbackProvider.getTransaction(txHash)
+
+      if (!tx) {
+        // Try one more approach - direct Etherscan API if available
+        try {
+          // This is a simplified example - in production you'd use an Etherscan API key
+          const response = await fetch(
+            `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}`,
+          )
+          const data = await response.json()
+
+          if (data.result) {
+            console.log("Transaction found via Etherscan API")
+            // Convert Etherscan format to ethers format
+            tx = {
+              hash: data.result.hash,
+              from: data.result.from,
+              to: data.result.to,
+              data: data.result.input,
+              value: BigInt(data.result.value),
+              chainId: Number.parseInt(data.result.chainId || "1", 16),
+              blockNumber: Number.parseInt(data.result.blockNumber || "0", 16),
+              blockHash: data.result.blockHash,
+              timestamp: Number.parseInt(data.result.timeStamp || "0", 10),
+            }
+          }
+        } catch (etherscanError) {
+          console.log("Failed to fetch from Etherscan:", etherscanError)
+        }
+      }
+
+      if (!tx) {
+        throw new Error(
+          "Transaction not found across multiple providers. Please check the transaction hash and network. " +
+            "If this is a very recent transaction, it may not have propagated to all nodes yet.",
+        )
+      }
     }
 
-    // Then try to get the receipt
-    const receipt = await provider.getTransactionReceipt(txHash)
-    if (!receipt) {
+    // Try to get the receipt
+    let receipt
+    try {
+      receipt = await provider.getTransactionReceipt(txHash)
+
+      // If not found with primary provider, try with fallback providers
+      if (!receipt) {
+        console.log("Receipt not found with primary provider, trying fallback providers")
+        const fallbackProvider = createFallbackProvider()
+        receipt = await fallbackProvider.getTransactionReceipt(txHash)
+      }
+    } catch (receiptError) {
+      console.log("Error getting receipt:", receiptError)
+    }
+
+    // If we have a transaction but no receipt, it's likely pending
+    if (tx && !receipt) {
       return {
         transaction: tx,
         status: "pending",
         message: "Transaction exists but hasn't been confirmed yet. Please try again later.",
+        networkInfo: {
+          chainId: tx.chainId,
+          blockNumber: await provider.getBlockNumber(),
+        },
       }
     }
 
-    // Try to get enhanced receipt with trace data if possible
-    try {
-      const enhancedReceipt = await getEnhancedTransactionReceipt(txHash)
-      return {
-        transaction: tx,
-        receipt: enhancedReceipt,
-        status: "confirmed",
-      }
-    } catch (e) {
-      // Fall back to basic receipt if enhanced receipt fails
-      return {
-        transaction: tx,
-        receipt,
-        status: "confirmed",
-        message: "Basic transaction information available. Advanced tracing not supported by your RPC provider.",
+    // If we have both transaction and receipt, return enhanced receipt if possible
+    if (tx && receipt) {
+      try {
+        // Try to enhance the receipt with trace data
+        const enhancedReceipt = await getEnhancedTransactionReceipt(txHash)
+        return {
+          transaction: tx,
+          receipt: enhancedReceipt,
+          status: "confirmed",
+          networkInfo: {
+            chainId: tx.chainId,
+            blockNumber: await provider.getBlockNumber(),
+          },
+        }
+      } catch (enhanceError) {
+        // Fall back to basic receipt if enhanced receipt fails
+        console.log("Error enhancing receipt:", enhanceError)
+        return {
+          transaction: tx,
+          receipt,
+          status: "confirmed",
+          message: "Basic transaction information available. Advanced tracing not supported by your RPC provider.",
+          networkInfo: {
+            chainId: tx.chainId,
+            blockNumber: await provider.getBlockNumber(),
+          },
+        }
       }
     }
+
+    // This should not happen, but just in case
+    throw new Error("Unexpected error processing transaction data")
   } catch (error: any) {
     console.error("Error searching for transaction:", error)
-    throw error
+
+    // Check if it's a network mismatch
+    try {
+      const networkInfo = await provider.getNetwork()
+
+      throw new Error(
+        `Transaction not found. Please check the transaction hash and ensure you're connected to the correct network. ` +
+          `Currently connected to: ${networkInfo.name} (Chain ID: ${networkInfo.chainId})`,
+      )
+    } catch (networkError) {
+      // If we can't get network info, just throw the original error
+      throw error
+    }
   }
 }
 

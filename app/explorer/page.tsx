@@ -10,6 +10,7 @@ import { Search, FileSearch, Wallet, AlertCircle, Loader2, AlertTriangle } from 
 import { useRouter } from "next/navigation"
 import { useWallet } from "@/hooks/use-wallet"
 import { checkTracingSupport } from "@/utils/advanced-rpc"
+import { NetworkStatus } from "@/components/network-status"
 
 export default function ExplorerPage() {
   const router = useRouter()
@@ -81,7 +82,10 @@ export default function ExplorerPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-slate-800 dark:text-slate-100">PYUSD Block Explorer</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">PYUSD Block Explorer</h1>
+        <NetworkStatus />
+      </div>
 
       {tracingSupported === false && (
         <Alert className="mb-8 bg-amber-50 text-amber-800 border-amber-200">
