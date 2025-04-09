@@ -1,7 +1,7 @@
 import { ethers } from "ethers"
 
 // GCP Blockchain RPC endpoint - replace with your actual endpoint
-const GCP_RPC_ENDPOINT = process.env.NEXT_PUBLIC_GCP_RPC_ENDPOINT 
+const GCP_RPC_ENDPOINT = process.env.NEXT_PUBLIC_GCP_RPC_ENDPOINT || "https://your-gcp-rpc-endpoint.com"
 
 // Create a provider specifically for advanced RPC calls
 export const createAdvancedProvider = () => {
@@ -104,6 +104,7 @@ export async function getTransactionTrace(txHash: string): Promise<TraceTransact
 
 /**
  * Get enhanced transaction receipt with trace data
+ * Improved with better error handling and fallback mechanisms
  */
 export async function getEnhancedTransactionReceipt(txHash: string): Promise<EnhancedTransactionReceipt> {
   const provider = createAdvancedProvider()
@@ -111,7 +112,15 @@ export async function getEnhancedTransactionReceipt(txHash: string): Promise<Enh
   try {
     // Get basic transaction receipt
     const receipt = await provider.getTransactionReceipt(txHash)
-    if (!receipt) throw new Error("Transaction receipt not found")
+    if (!receipt) {
+      // Try to get the transaction first to see if it exists but isn't confirmed
+      const tx = await provider.getTransaction(txHash)
+      if (tx) {
+        throw new Error("Transaction exists but hasn't been confirmed yet. Please try again later.")
+      } else {
+        throw new Error("Transaction not found. Please check the transaction hash and network.")
+      }
+    }
 
     // Get transaction data
     const tx = await provider.getTransaction(txHash)
@@ -176,7 +185,7 @@ export async function getEnhancedTransactionReceipt(txHash: string): Promise<Enh
     }
 
     return enhancedReceipt
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting enhanced transaction receipt:", error)
     throw error
   }
@@ -186,10 +195,12 @@ export async function getEnhancedTransactionReceipt(txHash: string): Promise<Enh
  * Get historical PYUSD transactions for an address using standard methods
  * This is a fallback for when trace_block is not available
  */
-export async function getHistoricalPyusdTransactionsStandard(address: string): Promise<any[]> {
+export async function getHistoricalPyusdTransactionsStandard(address: string, blockCount = 10000): Promise<any[]> {
   const provider = createAdvancedProvider()
 
   try {
+    console.log(`Using standard event logs to get transactions for ${address}`)
+
     // Create a filter for Transfer events where the address is either sender or receiver
     const pyusdContract = new ethers.Contract(
       PYUSD_ADDRESS,
@@ -200,8 +211,9 @@ export async function getHistoricalPyusdTransactionsStandard(address: string): P
     // Get the current block number
     const currentBlock = await provider.getBlockNumber()
 
-    // Look back 10,000 blocks or to block 0, whichever is greater
-    const fromBlock = Math.max(0, currentBlock - 10000)
+    // Look back blockCount blocks or to block 0, whichever is greater
+    const fromBlock = Math.max(0, currentBlock - blockCount)
+    console.log(`Searching from block ${fromBlock} to ${currentBlock}`)
 
     // Create filters for sent and received transfers
     const sentFilter = pyusdContract.filters.Transfer(address)
@@ -221,14 +233,23 @@ export async function getHistoricalPyusdTransactionsStandard(address: string): P
       }),
     ])
 
+    console.log(`Found ${sentLogs.length} sent transactions and ${receivedLogs.length} received transactions`)
+
     // Combine and sort logs
     const allLogs = [...sentLogs, ...receivedLogs].sort((a, b) => b.blockNumber - a.blockNumber)
 
     // Process logs into transaction objects
     const transactions = []
+    const processedTxHashes = new Set()
 
     for (const log of allLogs) {
       try {
+        // Skip duplicate transactions (same tx hash)
+        if (processedTxHashes.has(log.transactionHash)) {
+          continue
+        }
+        processedTxHashes.add(log.transactionHash)
+
         // Parse the log
         const parsedLog = pyusdContract.interface.parseLog({
           topics: log.topics as string[],
@@ -277,7 +298,7 @@ export async function getHistoricalPyusdTransactions(address: string, blockCount
 
     if (!isSupported) {
       console.log("Tracing not supported, using standard event logs instead")
-      return getHistoricalPyusdTransactionsStandard(address)
+      return getHistoricalPyusdTransactionsStandard(address, blockCount)
     }
 
     const provider = createAdvancedProvider()
@@ -357,75 +378,152 @@ export async function getHistoricalPyusdTransactions(address: string, blockCount
   } catch (error) {
     console.error("Error getting historical PYUSD transactions:", error)
     // Fall back to standard method if trace_block fails
-    return getHistoricalPyusdTransactionsStandard(address)
+    return getHistoricalPyusdTransactionsStandard(address, blockCount)
   }
 }
 
 /**
- * Simulate a PYUSD transaction before sending it
- * Uses trace_call to simulate the transaction execution
+ * Search for a transaction by hash with improved error handling
+ * This function will work even without advanced tracing methods
+ */
+export async function searchTransactionByHash(txHash: string): Promise<any> {
+  const provider = createAdvancedProvider()
+
+  try {
+    // First try to get the transaction
+    const tx = await provider.getTransaction(txHash)
+    if (!tx) {
+      throw new Error("Transaction not found. Please check the transaction hash and network.")
+    }
+
+    // Then try to get the receipt
+    const receipt = await provider.getTransactionReceipt(txHash)
+    if (!receipt) {
+      return {
+        transaction: tx,
+        status: "pending",
+        message: "Transaction exists but hasn't been confirmed yet. Please try again later.",
+      }
+    }
+
+    // Try to get enhanced receipt with trace data if possible
+    try {
+      const enhancedReceipt = await getEnhancedTransactionReceipt(txHash)
+      return {
+        transaction: tx,
+        receipt: enhancedReceipt,
+        status: "confirmed",
+      }
+    } catch (e) {
+      // Fall back to basic receipt if enhanced receipt fails
+      return {
+        transaction: tx,
+        receipt,
+        status: "confirmed",
+        message: "Basic transaction information available. Advanced tracing not supported by your RPC provider.",
+      }
+    }
+  } catch (error: any) {
+    console.error("Error searching for transaction:", error)
+    throw error
+  }
+}
+
+/**
+ * Search for transactions by address with improved error handling
+ * This function will work even without advanced tracing methods
+ */
+export async function searchTransactionsByAddress(address: string, blockCount = 1000): Promise<any> {
+  try {
+    // Validate address
+    if (!ethers.isAddress(address)) {
+      throw new Error("Invalid Ethereum address format")
+    }
+
+    // Get historical transactions
+    const transactions = await getHistoricalPyusdTransactions(address, blockCount)
+
+    return {
+      address,
+      transactions,
+      count: transactions.length,
+      message:
+        transactions.length === 0
+          ? "No PYUSD transactions found for this address in the specified block range."
+          : undefined,
+    }
+  } catch (error: any) {
+    console.error("Error searching for transactions by address:", error)
+    throw error
+  }
+}
+
+/**
+ * Simulate a PYUSD transaction using trace_call
  */
 export async function simulatePyusdTransaction(from: string, to: string, amount: string): Promise<any> {
   const provider = createAdvancedProvider()
 
   try {
-    // First check if tracing is supported
-    const isSupported = await checkTracingSupport()
+    // Validate inputs
+    if (!ethers.isAddress(from)) {
+      throw new Error("Invalid 'from' address")
+    }
+    if (!ethers.isAddress(to)) {
+      throw new Error("Invalid 'to' address")
+    }
+    const amountInWei = ethers.parseUnits(amount, 6) // PYUSD has 6 decimals
 
-    // Create PYUSD contract interface
-    const pyusdInterface = new ethers.Interface(["function transfer(address to, uint256 amount) returns (bool)"])
+    // Construct the transaction object
+    const tx = {
+      to: PYUSD_ADDRESS,
+      from: from,
+      data: new ethers.Interface(["function transfer(address to, uint256 amount) returns (bool)"]).encodeFunctionData(
+        "transfer",
+        [to, amountInWei],
+      ),
+      gas: 3000000, // Set a reasonable gas limit
+    }
 
-    // Encode transfer function call
-    const data = pyusdInterface.encodeFunctionData("transfer", [
-      to,
-      ethers.parseUnits(amount, 6), // PYUSD has 6 decimals
+    // Simulate the transaction using trace_call
+    const trace = await provider.send("debug_traceCall", [
+      tx,
+      "latest",
+      {
+        tracer: "callTracer",
+        tracerConfig: {
+          onlyTopCall: true,
+        },
+      },
     ])
 
-    // Prepare call object
-    const callObject = {
-      from,
-      to: PYUSD_ADDRESS,
-      data,
-    }
-
-    let traceResult = null
-
-    // Simulate transaction using trace_call if supported
-    if (isSupported) {
-      traceResult = await provider.send("trace_call", [callObject, ["trace", "vmTrace", "stateDiff"], "latest"])
-    }
-
-    // Get gas estimate
-    const gasEstimate = await provider.estimateGas(callObject)
-
-    // Get current gas price
-    const feeData = await provider.getFeeData()
-
-    // Calculate gas cost
-    const gasCost = gasEstimate * (feeData.gasPrice || 0n)
-
-    return {
-      success: traceResult ? !traceResult.trace.error : true,
-      error: traceResult?.trace.error,
-      gasEstimate: gasEstimate.toString(),
-      gasCost: ethers.formatEther(gasCost),
-      trace: traceResult,
-    }
-  } catch (error) {
-    console.error("Error simulating PYUSD transaction:", error)
-
-    // If it's a gas estimation error, the transaction would likely fail
-    if (error.message && error.message.includes("gas")) {
+    // Check for errors in the trace
+    if (trace.error) {
       return {
         success: false,
-        error: "Transaction would fail: " + error.message,
-        gasEstimate: "0",
-        gasCost: "0",
-        trace: null,
+        error: trace.error,
+        trace,
       }
     }
 
-    throw error
+    // Estimate gas cost
+    const gasEstimate = 21000 // ethers.toNumber(trace.gas)
+    const gasPrice = await provider.getGasPrice()
+    const gasCost = gasEstimate * Number(gasPrice)
+    const gasCostInEth = ethers.formatEther(gasCost)
+
+    return {
+      success: true,
+      gasEstimate,
+      gasCost: gasCostInEth,
+      trace,
+    }
+  } catch (error: any) {
+    console.error("Error simulating transaction:", error)
+    return {
+      success: false,
+      error: error.message || "Failed to simulate transaction",
+    }
   }
 }
 
@@ -441,14 +539,15 @@ export async function generateTransferProof(
   // Placeholder implementation - replace with actual ZK proof generation logic
   return new Promise((resolve) => {
     setTimeout(() => {
-      resolve({
-        proof: "0x" + "0".repeat(256), // Dummy proof
+      const proofData = {
+        proof: "0x" + Array(128).fill(0).join(""), // Dummy proof
         publicInputs: {
           from: from,
           to: to,
           amount: amount,
         },
-      })
+      }
+      resolve(proofData)
     }, 1000)
   })
 }

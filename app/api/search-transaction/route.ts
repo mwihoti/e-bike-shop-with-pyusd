@@ -10,14 +10,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Use the improved search function
     const result = await searchTransactionByHash(txHash)
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error("Error in transaction-trace API route:", error)
+    console.error("Error in search-transaction API route:", error)
     return NextResponse.json(
       {
-        error: error.message || "Failed to get transaction trace",
+        error: error.message || "Failed to find transaction",
         details: error.code || "unknown_error",
       },
       { status: 500 },
