@@ -3,17 +3,18 @@
 import { useState, useEffect } from "react"
 import { ethers } from "ethers"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { verifyRpcEndpoint } from "@/utils/rpc-monitor"
 import { useWallet } from "@/hooks/use-wallet"
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, CheckCircle, Loader2, Wallet } from "lucide-react"
 
 export default function DiagnosticsPage() {
-  const { isConnected, account, provider, chainId, networkName } = useWallet()
+  const { isConnected, account, provider, chainId, networkName, connectWallet } = useWallet()
   const [isChecking, setIsChecking] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
   const [results, setResults] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [isMounted, setIsMounted] = useState(false)
@@ -84,6 +85,20 @@ export default function DiagnosticsPage() {
     }
   }
 
+  const handleConnectWallet = async () => {
+    setIsConnecting(true)
+    setError(null)
+
+    try {
+      await connectWallet()
+    } catch (err: any) {
+      setError(err.message || "Failed to connect wallet")
+      console.error("Wallet connection error:", err)
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8 text-slate-800 dark:text-slate-100">RPC Connection Diagnostics</h1>
@@ -101,103 +116,124 @@ export default function DiagnosticsPage() {
             </Alert>
           )}
 
-          {!isConnected && (
-            <Alert className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>You need to connect your wallet first to check the RPC connection.</AlertDescription>
-            </Alert>
-          )}
+          {!isConnected ? (
+            <div className="space-y-4">
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>You need to connect your wallet first to check the RPC connection.</AlertDescription>
+              </Alert>
 
-          {results && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <h3 className="font-semibold mb-2">Connection Info</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-sm text-muted-foreground">Chain ID:</div>
-                  <div>{results.connectionInfo.chainId}</div>
-
-                  <div className="text-sm text-muted-foreground">Network:</div>
-                  <div>{results.connectionInfo.networkName}</div>
-
-                  <div className="text-sm text-muted-foreground">Connected Account:</div>
-                  <div className="font-mono text-sm">{results.connectionInfo.account}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-2">Block Info</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-sm text-muted-foreground">Latest Block:</div>
-                  <div>{results.blockInfo.number}</div>
-
-                  <div className="text-sm text-muted-foreground">Block Time:</div>
-                  <div>{results.blockInfo.timestamp}</div>
-
-                  <div className="text-sm text-muted-foreground">Block Hash:</div>
-                  <div className="font-mono text-xs truncate">{results.blockInfo.hash}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-2">Gas Info</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-sm text-muted-foreground">Gas Price:</div>
-                  <div>{results.gasInfo.gasPrice}</div>
-
-                  <div className="text-sm text-muted-foreground">Max Fee Per Gas:</div>
-                  <div>{results.gasInfo.maxFeePerGas}</div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="font-semibold mb-2">Node Info</h3>
-                {results.nodeInfo.clientVersion ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="text-sm text-muted-foreground">Client Version:</div>
-                    <div className="font-mono text-xs">{results.nodeInfo.clientVersion}</div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{results.nodeInfo.error}</p>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center">
-                <Badge
-                  variant={results.isRpcValid ? "outline" : "destructive"}
-                  className={results.isRpcValid ? "bg-green-50 text-green-800 border-green-200" : ""}
-                >
-                  {results.isRpcValid ? (
+              <div className="flex justify-center">
+                <Button onClick={handleConnectWallet} disabled={isConnecting}>
+                  {isConnecting ? (
                     <>
-                      <CheckCircle className="h-3 w-3 mr-1" /> RPC Connection Valid
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connecting...
                     </>
                   ) : (
                     <>
-                      <AlertCircle className="h-3 w-3 mr-1" /> RPC Connection Issues
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Connect Wallet
                     </>
                   )}
-                </Badge>
+                </Button>
               </div>
             </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                <Button onClick={checkRpcConnection} disabled={isChecking}>
+                  {isChecking ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    "Check RPC Connection"
+                  )}
+                </Button>
+              </div>
+
+              {results && (
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">Connection Info</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="text-sm text-muted-foreground">Chain ID:</div>
+                      <div>{results.connectionInfo.chainId}</div>
+
+                      <div className="text-sm text-muted-foreground">Network:</div>
+                      <div>{results.connectionInfo.networkName}</div>
+
+                      <div className="text-sm text-muted-foreground">Connected Account:</div>
+                      <div className="font-mono text-sm">{results.connectionInfo.account}</div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="font-semibold mb-2">Block Info</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="text-sm text-muted-foreground">Latest Block:</div>
+                      <div>{results.blockInfo.number}</div>
+
+                      <div className="text-sm text-muted-foreground">Block Time:</div>
+                      <div>{results.blockInfo.timestamp}</div>
+
+                      <div className="text-sm text-muted-foreground">Block Hash:</div>
+                      <div className="font-mono text-xs truncate">{results.blockInfo.hash}</div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="font-semibold mb-2">Gas Info</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="text-sm text-muted-foreground">Gas Price:</div>
+                      <div>{results.gasInfo.gasPrice}</div>
+
+                      <div className="text-sm text-muted-foreground">Max Fee Per Gas:</div>
+                      <div>{results.gasInfo.maxFeePerGas}</div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h3 className="font-semibold mb-2">Node Info</h3>
+                    {results.nodeInfo.clientVersion ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="text-sm text-muted-foreground">Client Version:</div>
+                        <div className="font-mono text-xs">{results.nodeInfo.clientVersion}</div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{results.nodeInfo.error}</p>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex items-center">
+                    <Badge
+                      variant={results.isRpcValid ? "outline" : "destructive"}
+                      className={results.isRpcValid ? "bg-green-50 text-green-800 border-green-200" : ""}
+                    >
+                      {results.isRpcValid ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 mr-1" /> RPC Connection Valid
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-3 w-3 mr-1" /> RPC Connection Issues
+                        </>
+                      )}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
-        <CardFooter>
-          <Button onClick={checkRpcConnection} disabled={isChecking || !isConnected}>
-            {isChecking ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              "Check RPC Connection"
-            )}
-          </Button>
-        </CardFooter>
       </Card>
 
       <Card>
@@ -232,4 +268,3 @@ export default function DiagnosticsPage() {
     </div>
   )
 }
-

@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, AlertCircle, ArrowRight } from "lucide-react"
+import { Loader2, AlertCircle, ArrowRight, AlertTriangle } from "lucide-react"
 import { useWallet } from "@/hooks/use-wallet"
 import Link from "next/link"
+import { checkTracingSupport } from "@/utils/advanced-rpc"
 
 export function HistoricalAnalysisTool() {
   const { account } = useWallet()
@@ -19,6 +20,17 @@ export function HistoricalAnalysisTool() {
   const [error, setError] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<any[]>([])
   const [stats, setStats] = useState<any>(null)
+  const [tracingSupported, setTracingSupported] = useState<boolean | null>(null)
+
+  // Check if tracing is supported when component mounts
+  useEffect(() => {
+    const checkSupport = async () => {
+      const isSupported = await checkTracingSupport()
+      setTracingSupported(isSupported)
+    }
+
+    checkSupport()
+  }, [])
 
   useEffect(() => {
     if (account) {
@@ -99,9 +111,19 @@ export function HistoricalAnalysisTool() {
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Historical PYUSD Analysis</CardTitle>
-        <CardDescription>Analyze historical PYUSD transactions using GCP's trace_block capability</CardDescription>
+        <CardDescription>Analyze historical PYUSD transactions using event logs and blockchain data</CardDescription>
       </CardHeader>
       <CardContent>
+        {tracingSupported === false && (
+          <Alert className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription>
+              Your RPC provider does not support advanced tracing methods. Limited transaction history will be available
+              using standard event logs.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="space-y-4">
           <div className="flex gap-2">
             <Input
@@ -177,26 +199,30 @@ export function HistoricalAnalysisTool() {
                 </div>
               </div>
 
-              <div>
-                <h4 className="font-semibold mb-2">Transaction Activity</h4>
-                <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-md p-2">
-                  <div className="flex h-full items-end">
-                    {Object.entries(stats.txByDate)
-                      .slice(-14)
-                      .map(([date, count]: [string, number], i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center">
-                          <div
-                            className="w-full bg-primary rounded-t-sm"
-                            style={{
-                              height: `${Math.max(10, (count / Math.max(...(Object.values(stats.txByDate) as number[]))) * 100)}%`,
-                            }}
-                          />
-                          <div className="text-xs mt-1 rotate-45 origin-left">{date.split("-").slice(1).join("/")}</div>
-                        </div>
-                      ))}
+              {Object.keys(stats.txByDate).length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-2">Transaction Activity</h4>
+                  <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-md p-2">
+                    <div className="flex h-full items-end">
+                      {Object.entries(stats.txByDate)
+                        .slice(-14)
+                        .map(([date, count]: [string, number], i) => (
+                          <div key={i} className="flex-1 flex flex-col items-center">
+                            <div
+                              className="w-full bg-primary rounded-t-sm"
+                              style={{
+                                height: `${Math.max(10, (count / Math.max(...(Object.values(stats.txByDate) as number[]))) * 100)}%`,
+                              }}
+                            />
+                            <div className="text-xs mt-1 rotate-45 origin-left">
+                              {date.split("-").slice(1).join("/")}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
