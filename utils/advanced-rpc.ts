@@ -1,7 +1,7 @@
 import { ethers } from "ethers"
 
-// GCP Blockchain RPC endpoint - replace with your actual endpoint
-const GCP_RPC_ENDPOINT = process.env.NEXT_PUBLIC_GCP_RPC_ENDPOINT || "https://your-gcp-rpc-endpoint.com"
+// GCP Blockchain RPC endpoint 
+const GCP_RPC_ENDPOINT = process.env.NEXT_PUBLIC_GCP_RPC_ENDPOINT
 
 // Create a provider specifically for advanced RPC calls
 export const createAdvancedProvider = () => {
