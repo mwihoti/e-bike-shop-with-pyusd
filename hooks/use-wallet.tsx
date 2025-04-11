@@ -369,7 +369,10 @@ export function WalletProvider({ children }) {
       return
     }
 
-   
+    // Remove this authentication check
+    // if (!isAuthenticated) {
+    //   throw new Error("You must be logged in to connect your wallet")
+    // }
 
     if (!window.ethereum) {
       throw new Error("No Ethereum wallet detected")
@@ -507,7 +510,7 @@ export function WalletProvider({ children }) {
       }
 
       // First, check if the wallets table exists
-      const { error: checkError } = await supabase.from("wallets").select("id").limit(1)
+      const { error: checkError } = await supabase().from("wallets").select("id").limit(1)
 
       if (checkError) {
         console.log("Wallets table check error:", checkError)
@@ -518,7 +521,7 @@ export function WalletProvider({ children }) {
       }
 
       // Check if wallet already exists
-      const { data: existingWallet, error: existingError } = await supabase
+      const { data: existingWallet, error: existingError } = await supabase()
         .from("wallets")
         .select("*")
         .eq("user_id", user.id)
@@ -535,7 +538,7 @@ export function WalletProvider({ children }) {
       }
 
       // Get count of user's wallets
-      const { data: wallets, error: walletsError } = await supabase
+      const { data: wallets, error: walletsError } = await supabase()
         .from("wallets")
         .select("id")
         .eq("user_id", user.id)
@@ -554,7 +557,7 @@ export function WalletProvider({ children }) {
       })
 
       // Save new wallet with explicit columns
-      const { data, error } = await supabase
+      const { data, error } = await supabase()
         .from("wallets")
         .insert({
           user_id: user.id,
@@ -663,4 +666,3 @@ export function WalletProvider({ children }) {
 export function useWallet() {
   return useContext(WalletContext)
 }
-

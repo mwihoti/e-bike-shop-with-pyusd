@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Home, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Database, Shield, Menu, X } from "lucide-react"
 
 const navItems = [
-  { name: "Home", href: "/", icon: Home },
-  { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
-  { name: "Wallet", href: "/", icon: Wallet },
-  { name: "Explorer", href: "/explorer", icon: FileSearch },
-  { name: "Analytics", href: "/analytics", icon: BarChart2 },
-  { name: "Diagnostics", href: "/diagnostics", icon: Settings },
+  { id: "home", name: "Home", href: "/", icon: Home },
+  { id: "marketplace", name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
+  { id: "wallet", name: "Wallet", href: "/", icon: Wallet },
+  { id: "explorer", name: "Explorer", href: "/explorer", icon: FileSearch },
+  { id: "analytics", name: "Analytics", href: "/analytics", icon: BarChart2 },
+  { id: "diagnostics", name: "Diagnostics", href: "/diagnostics", icon: Settings },
 ]
 
 export function BlockchainNavbar() {
@@ -49,7 +49,7 @@ export function BlockchainNavbar() {
 
             return (
               <Link
-                key={item.href}
+                key={item.id}
                 href={item.href}
                 className={cn(
                   "flex items-center text-sm font-medium transition-colors hover:text-primary",
@@ -73,7 +73,7 @@ export function BlockchainNavbar() {
 
                   return (
                     <Link
-                      key={item.href}
+                      key={item.id}
                       href={item.href}
                       className={cn(
                         "flex items-center p-2 rounded-md hover:bg-accent",
