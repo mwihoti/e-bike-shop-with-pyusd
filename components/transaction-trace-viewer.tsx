@@ -123,10 +123,15 @@ export function TransactionTraceViewer() {
                 <div className="font-mono break-all">{receipt.hash}</div>
 
                 <div className="font-medium">Block Number:</div>
-                <div>{receipt.blockNumber.toString()}</div>
+                <div>{receipt.blockNumber ? receipt.blockNumber.toString() : "N/A"}</div>
 
                 <div className="font-medium">Gas Used:</div>
-                <div>{receipt.gasUsed.toString()}</div>
+                <div>
+                  {receipt.gasUsed ? receipt.gasUsed.toString() : "N/A"}
+                  {receipt.gasUsed && receipt.gasLimit
+                    ? `(${((Number(receipt.gasUsed) / Number(receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
+                    : ""}
+                </div>
               </div>
 
               {receipt.pyusdTransfers && receipt.pyusdTransfers.length > 0 && (
@@ -198,8 +203,10 @@ export function TransactionTraceViewer() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Gas Used:</div>
                           <div>
-                            {receipt.gasUsed.toString()} (
-                            {((Number(receipt.gasUsed) / Number(receipt.gasLimit)) * 100).toFixed(2)}% of limit)
+                            {receipt.gasUsed ? receipt.gasUsed.toString() : "N/A"}
+                            {receipt.gasUsed && receipt.gasLimit
+                              ? `(${((Number(receipt.gasUsed) / Number(receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
+                              : ""}
                           </div>
 
                           <div>Effective Gas Price:</div>
@@ -211,7 +218,7 @@ export function TransactionTraceViewer() {
 
                           <div>Total Cost:</div>
                           <div>
-                            {receipt.effectiveGasPrice
+                            {receipt.effectiveGasPrice && receipt.gasUsed
                               ? ((Number(receipt.gasUsed) * Number(receipt.effectiveGasPrice)) / 1e18).toFixed(6) +
                                 " ETH"
                               : "N/A"}

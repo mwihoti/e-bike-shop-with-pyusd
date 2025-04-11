@@ -16,6 +16,10 @@ export default function AddressPage() {
   const [error, setError] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<any[]>([])
   const [stats, setStats] = useState<any>(null)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [totalTransactions, setTotalTransactions] = useState(0)
+  const pageSize = 10
 
   // Get address from URL
   const address = params.address as string
@@ -28,7 +32,10 @@ export default function AddressPage() {
       setError(null)
 
       try {
-        const response = await fetch(`/api/historical-transactions?address=${address}&blockCount=1000`)
+        // Use a smaller block count and pagination for better performance
+        const response = await fetch(
+          `/api/historical-transactions?address=${address}&blockCount=50&page=${page}&pageSize=${pageSize}`,
+        )
 
         if (!response.ok) {
           const errorData = await response.json()
@@ -36,58 +43,130 @@ export default function AddressPage() {
         }
 
         const data = await response.json()
-        setTransactions(data)
 
-        // Calculate statistics
-        if (data.length > 0) {
-          const totalSent = data.reduce((sum: number, tx: any) => {
-            const sentTransfers = tx.transfers.filter((t: any) => t.from.toLowerCase() === address.toLowerCase())
-            return sum + sentTransfers.reduce((s: number, t: any) => s + Number.parseFloat(t.formattedValue), 0)
-          }, 0)
+        // Validate the data before setting it
+        if (!data.transactions || !Array.isArray(data.transactions)) {
+          console.error("Invalid data format received:", data)
+          throw new Error("Invalid data format received from server")
+        }
 
-          const totalReceived = data.reduce((sum: number, tx: any) => {
-            const receivedTransfers = tx.transfers.filter((t: any) => t.to.toLowerCase() === address.toLowerCase())
-            return sum + receivedTransfers.reduce((s: number, t: any) => s + Number.parseFloat(t.formattedValue), 0)
-          }, 0)
+        setTransactions(data.transactions)
+        setHasMore(data.pagination.hasMore)
+        setTotalTransactions(data.pagination.total)
 
-          const uniqueCounterparties = new Set()
-          data.forEach((tx: any) => {
-            tx.transfers.forEach((t: any) => {
-              if (t.from.toLowerCase() === address.toLowerCase()) {
-                uniqueCounterparties.add(t.to.toLowerCase())
-              } else if (t.to.toLowerCase() === address.toLowerCase()) {
-                uniqueCounterparties.add(t.from.toLowerCase())
+        // Calculate statistics with better error handling
+        if (data.transactions.length > 0) {
+          try {
+            const totalSent = data.transactions.reduce((sum: number, tx: any) => {
+              if (!tx.transfers || !Array.isArray(tx.transfers)) return sum
+
+              const sentTransfers = tx.transfers.filter(
+                (t: any) => t && t.from && address && t.from.toLowerCase() === address.toLowerCase(),
+              )
+
+              return (
+                sum +
+                sentTransfers.reduce((s: number, t: any) => {
+                  const value = t && t.formattedValue ? Number.parseFloat(t.formattedValue) : 0
+                  return s + (isNaN(value) ? 0 : value)
+                }, 0)
+              )
+            }, 0)
+
+            const totalReceived = data.transactions.reduce((sum: number, tx: any) => {
+              if (!tx.transfers || !Array.isArray(tx.transfers)) return sum
+
+              const receivedTransfers = tx.transfers.filter(
+                (t: any) => t && t.to && address && t.to.toLowerCase() === address.toLowerCase(),
+              )
+
+              return (
+                sum +
+                receivedTransfers.reduce((s: number, t: any) => {
+                  const value = t && t.formattedValue ? Number.parseFloat(t.formattedValue) : 0
+                  return s + (isNaN(value) ? 0 : value)
+                }, 0)
+              )
+            }, 0)
+
+            // Continue with the rest of your statistics calculation
+            const uniqueCounterparties = new Set()
+            data.transactions.forEach((tx: any) => {
+              if (!tx.transfers || !Array.isArray(tx.transfers)) return
+
+              tx.transfers.forEach((t: any) => {
+                if (!t || !t.from || !t.to) return
+
+                if (t.from.toLowerCase() === address.toLowerCase()) {
+                  uniqueCounterparties.add(t.to.toLowerCase())
+                } else if (t.to.toLowerCase() === address.toLowerCase()) {
+                  uniqueCounterparties.add(t.from.toLowerCase())
+                }
+              })
+            })
+
+            // Group by date with error handling
+            const txByDate: Record<string, number> = {}
+            data.transactions.forEach((tx: any) => {
+              if (tx && tx.timestamp) {
+                try {
+                  const date = new Date(tx.timestamp * 1000).toISOString().split("T")[0]
+                  txByDate[date] = (txByDate[date] || 0) + 1
+                } catch (dateError) {
+                  console.error("Error processing date:", dateError)
+                }
               }
             })
-          })
 
-          // Group by date
-          const txByDate: Record<string, number> = {}
-          data.forEach((tx: any) => {
-            if (tx.timestamp) {
-              const date = new Date(tx.timestamp * 1000).toISOString().split("T")[0]
-              txByDate[date] = (txByDate[date] || 0) + 1
-            }
-          })
-
-          setStats({
-            totalTransactions: data.length,
-            totalSent,
-            totalReceived,
-            netFlow: totalReceived - totalSent,
-            uniqueCounterparties: uniqueCounterparties.size,
-            txByDate,
-          })
+            setStats({
+              totalTransactions: data.pagination.total,
+              totalSent,
+              totalReceived,
+              netFlow: totalReceived - totalSent,
+              uniqueCounterparties: uniqueCounterparties.size,
+              txByDate,
+            })
+          } catch (statsError) {
+            console.error("Error calculating statistics:", statsError)
+            // Don't throw here, just log the error and continue without stats
+          }
         }
       } catch (err: any) {
-        setError(err.message || "An error occurred while fetching address transactions")
+        console.error("Error fetching transactions:", err)
+
+        // Provide more specific error messages for common issues
+        if (err.message && err.message.includes("query returned more than 10000 results")) {
+          setError(
+            "This address has too many transactions to display all at once. We're showing a limited set of the most recent transactions.",
+          )
+
+          // Try again with an even smaller block range
+          try {
+            const retryResponse = await fetch(
+              `/api/historical-transactions?address=${address}&blockCount=10&page=${page}&pageSize=${pageSize}`,
+            )
+
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json()
+              if (retryData.transactions && Array.isArray(retryData.transactions)) {
+                setTransactions(retryData.transactions)
+                setHasMore(retryData.pagination.hasMore)
+                setTotalTransactions(retryData.pagination.total)
+              }
+            }
+          } catch (retryErr) {
+            console.error("Error in retry attempt:", retryErr)
+          }
+        } else {
+          setError(err.message || "An error occurred while fetching address transactions")
+        }
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchAddressTransactions()
-  }, [address])
+  }, [address, page])
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString()
@@ -95,6 +174,16 @@ export default function AddressPage() {
 
   const formatAddress = (addr: string) => {
     return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`
+  }
+
+  const loadMoreTransactions = () => {
+    setPage(page + 1)
+  }
+
+  const loadPreviousTransactions = () => {
+    if (page > 1) {
+      setPage(page - 1)
+    }
   }
 
   return (
@@ -115,7 +204,7 @@ export default function AddressPage() {
           <CardDescription className="font-mono break-all">{address}</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading && page === 1 ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -196,10 +285,14 @@ export default function AddressPage() {
       <Card>
         <CardHeader>
           <CardTitle>PYUSD Transactions</CardTitle>
-          <CardDescription>Showing the most recent PYUSD transactions for this address</CardDescription>
+          <CardDescription>
+            {totalTransactions > 0
+              ? `Showing transactions ${(page - 1) * pageSize + 1} to ${Math.min(page * pageSize, totalTransactions)} of ${totalTransactions}`
+              : "No transactions found"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoading && page === 1 ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
@@ -208,52 +301,74 @@ export default function AddressPage() {
               <p>No PYUSD transactions found for this address</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {transactions.map((tx, index) => (
-                <div key={index} className="p-4 border rounded-md">
-                  <div className="flex justify-between items-start mb-2">
-                    <Link href={`/explorer/tx/${tx.transactionHash}`} className="hover:underline">
-                      <div className="font-medium">Transaction</div>
-                      <div className="font-mono text-xs">{tx.transactionHash.substring(0, 18)}...</div>
-                    </Link>
-                    <Badge>Block {tx.blockNumber}</Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-2">
-                    {tx.timestamp ? formatDate(tx.timestamp) : "Timestamp not available"}
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="space-y-2">
-                    {tx.transfers.map((transfer: any, i: number) => (
-                      <div key={i} className="flex items-center">
-                        <div
-                          className={`font-mono text-xs truncate ${transfer.from.toLowerCase() === address.toLowerCase() ? "text-red-500" : ""}`}
-                        >
-                          <Link href={`/explorer/address/${transfer.from}`} className="hover:underline">
-                            {formatAddress(transfer.from)}
-                          </Link>
+            <>
+              <div className="space-y-4">
+                {transactions.map((tx, index) => (
+                  <div key={index} className="p-4 border rounded-md">
+                    <div className="flex justify-between items-start mb-2">
+                      <Link href={`/explorer/tx/${tx.transactionHash}`} className="hover:underline">
+                        <div className="font-medium">Transaction</div>
+                        <div className="font-mono text-xs">{tx.transactionHash.substring(0, 18)}...</div>
+                      </Link>
+                      <Badge>Block {tx.blockNumber}</Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      {tx.timestamp ? formatDate(tx.timestamp) : "Timestamp not available"}
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="space-y-2">
+                      {tx.transfers.map((transfer: any, i: number) => (
+                        <div key={i} className="flex items-center">
+                          <div
+                            className={`font-mono text-xs truncate ${transfer.from.toLowerCase() === address.toLowerCase() ? "text-red-500" : ""}`}
+                          >
+                            <Link href={`/explorer/address/${transfer.from}`} className="hover:underline">
+                              {formatAddress(transfer.from)}
+                            </Link>
+                          </div>
+                          <ArrowRight className="h-4 w-4 mx-2" />
+                          <div
+                            className={`font-mono text-xs truncate ${transfer.to.toLowerCase() === address.toLowerCase() ? "text-green-500" : ""}`}
+                          >
+                            <Link href={`/explorer/address/${transfer.to}`} className="hover:underline">
+                              {formatAddress(transfer.to)}
+                            </Link>
+                          </div>
+                          <div className="ml-auto font-medium">{transfer.formattedValue} PYUSD</div>
                         </div>
-                        <ArrowRight className="h-4 w-4 mx-2" />
-                        <div
-                          className={`font-mono text-xs truncate ${transfer.to.toLowerCase() === address.toLowerCase() ? "text-green-500" : ""}`}
-                        >
-                          <Link href={`/explorer/address/${transfer.to}`} className="hover:underline">
-                            {formatAddress(transfer.to)}
-                          </Link>
-                        </div>
-                        <div className="ml-auto font-medium">{transfer.formattedValue} PYUSD</div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <Link href={`/explorer/tx/${tx.transactionHash}`}>
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
-                  <div className="mt-2 flex justify-end">
-                    <Link href={`/explorer/tx/${tx.transactionHash}`}>
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                    </Link>
-                  </div>
+                ))}
+              </div>
+
+              {/* Pagination controls */}
+              {(page > 1 || hasMore) && (
+                <div className="flex justify-between mt-6">
+                  <Button variant="outline" onClick={loadPreviousTransactions} disabled={page <= 1 || isLoading}>
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                    )}
+                    Previous
+                  </Button>
+
+                  <Button variant="outline" onClick={loadMoreTransactions} disabled={!hasMore || isLoading}>
+                    {isLoading && page > 1 ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Next
+                    {!isLoading && <ArrowRight className="h-4 w-4 ml-2" />}
+                  </Button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

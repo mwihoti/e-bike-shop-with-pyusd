@@ -84,7 +84,21 @@ export default function TransactionPage() {
         <div className="space-y-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error.includes("different network") ? (
+                <>
+                  <p>
+                    <strong>Network Mismatch Detected:</strong> {error}
+                  </p>
+                  <p className="mt-2">
+                    This transaction appears to be on Ethereum mainnet. Please switch your wallet to Ethereum mainnet
+                    and try again.
+                  </p>
+                </>
+              ) : (
+                error
+              )}
+            </AlertDescription>
           </Alert>
 
           <Card>

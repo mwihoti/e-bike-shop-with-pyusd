@@ -38,6 +38,11 @@ export function monitorRpcConnection(provider: any) {
    * Checks if the provider is connected to the expected network
    */
   export async function verifyRpcEndpoint(provider: any, expectedUrl?: string) {
+    if (!provider) {
+      console.error("No provider available to verify RPC endpoint")
+      return false
+    }
+  
     try {
       // Get network information
       const network = await provider.getNetwork()

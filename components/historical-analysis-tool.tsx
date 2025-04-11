@@ -138,6 +138,7 @@ export function HistoricalAnalysisTool() {
               onChange={(e) => setBlockCount(e.target.value)}
               className="w-24"
               type="number"
+              max="200"
             />
             <Button onClick={fetchHistoricalTransactions} disabled={isLoading || !address}>
               {isLoading ? (
@@ -150,6 +151,11 @@ export function HistoricalAnalysisTool() {
               )}
             </Button>
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            Note: For performance reasons, block count is limited to 200 blocks. Larger ranges may be processed in
+            smaller chunks to avoid query limits.
+          </p>
 
           {error && (
             <Alert variant="destructive">
