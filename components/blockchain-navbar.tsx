@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Home, Store, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Database, Shield, Menu, X,   ShoppingCart, User, LogOut } from "lucide-react"
+import { Home, Store, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Database, Shield, Menu, X,   ShoppingCart, User, LogOut, Activity } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ const navItems = [
   { id: "wallet", name: "Wallet", href: "/", icon: Wallet },
   { id: "explorer", name: "Explorer", href: "/explorer", icon: FileSearch },
   { id: "analytics", name: "Analytics", href: "/analytics", icon: BarChart2 },
+  {id: "monitoring", name: "Monitoring", href: "/monitoring", icon: Activity},
   { id: "diagnostics", name: "Diagnostics", href: "/diagnostics", icon: Settings },
 ]
 
