@@ -81,26 +81,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router])
 
   // Sign in with OAuth provider
-  const signIn = async (provider: "google" | "github") => {
-    await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/marketplace/auth/callback`,
-      },
-    })
-  }
+  // Update the signIn function to use the current origin
+const signIn = async (provider: "google" | "github") => {
+  await supabase.auth.signInWithOAuth({
+    provider,
+    options: {
+      redirectTo: `${window.location.origin}/marketplace/auth/callback`,
+    },
+  })
+}
 
-  // Sign in with magic link
-  const signInWithEmail = async (email: string) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/marketplace/auth/callback`,
-      },
-    })
+// Update the signInWithEmail function to use the current origin
+const signInWithEmail = async (email: string) => {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/marketplace/auth/callback`,
+    },
+  })
 
-    return { error }
-  }
+  return { error }
+}
 
   // Sign out
   const signOut = async () => {

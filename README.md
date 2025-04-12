@@ -1,6 +1,6 @@
 # PYUSD dApp: Blockchain Explorer & Marketplace
 
-![PYUSD dApp](https://placeholder.svg?height=200&width=600&text=PYUSD+dApp)
+![PYUSD dApp](/public/retailer.png)
 
 ## Overview
 
@@ -85,58 +85,58 @@ PYUSD dApp addresses these challenges by providing:
 ### Installation
 
 1. Clone the repository:
-   \`\`\`bash
-   git clone https://github.com/yourusername/pyusd-dapp.git
+  ```bash
+   git clone https://github.com/mwihoti/pyusd-dapp.git
    cd pyusd-dapp
-   \`\`\`
+  ```
 
 2. Install dependencies:
-   \`\`\`bash
+   ```bash
    npm install
    # or
    yarn install
-   \`\`\`
+   ```
 
 3. Set up environment variables:
    Create a `.env.local` file in the root directory with the following variables:
-   \`\`\`
+   ```
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    NEXT_PUBLIC_GCP_RPC_ENDPOINT=your_gcp_rpc_endpoint (optional)
-   \`\`\`
+ ```
 
 4. Set up the database:
    Run the SQL scripts in the `supabase-schema.sql` file in your Supabase SQL editor.
 
 5. Start the development server:
-   \`\`\`bash
+   ```bash
    npm run dev
    # or
    yarn dev
-   \`\`\`
+   ```
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Production Deployment
 
 1. Build the application:
-   \`\`\`bash
+   ```bash
    npm run build
    # or
    yarn build
-   \`\`\`
+   ```
 
 2. Start the production server:
-   \`\`\`bash
+   ```bash
    npm start
    # or
    yarn start
-   \`\`\`
+```
 
 3. For deployment on Vercel:
-   \`\`\`bash
+   ```bash
    vercel
-   \`\`\`
+   ```
 
 ## Usage Instructions
 
@@ -252,7 +252,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see below for details:
 
-\`\`\`
+```
 MIT License
 
 Copyright (c) 2023 PYUSD dApp Contributors
@@ -274,12 +274,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-\`\`\`
+```
 
 ## Contact
 
 For questions or support, please open an issue on the GitHub repository or contact the maintainers at:
 
-- Email: support@pyusddapp.com
-- Twitter: [@pyusddapp](https://twitter.com/pyusddapp)
-- Discord: [PYUSD dApp Community](https://discord.gg/pyusddapp)
+- Email: danmwihoti@gmail.com
