@@ -17,6 +17,7 @@ export function TransactionTraceViewer() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<EnhancedTransactionReceipt | null>(null)
+  const [txData, setTxData] = useState<any>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [tracingSupported, setTracingSupported] = useState<boolean | null>(null)
 
@@ -30,6 +31,7 @@ export function TransactionTraceViewer() {
     checkSupport()
   }, [])
 
+  // Update the fetchTransactionTrace function to handle RPC limitations better
   const fetchTransactionTrace = async () => {
     if (!txHash) return
 
@@ -44,9 +46,23 @@ export function TransactionTraceViewer() {
       }
 
       const data = await response.json()
-      setReceipt(data)
+      setTxData(data)
+      setReceipt(data.receipt)
     } catch (err: any) {
-      setError(err.message || "An error occurred while fetching the transaction trace")
+      console.error("Error fetching transaction trace:", err)
+
+      // Provide more specific error messages
+      if (err.message && err.message.includes("tracing methods not supported")) {
+        setError(
+          "Your RPC provider doesn't support advanced tracing methods. Basic transaction information will still be available, but detailed execution traces will not be shown.",
+        )
+      } else if (err.message && err.message.includes("network mismatch")) {
+        setError(
+          "Network mismatch detected. Please ensure your wallet and RPC provider are connected to the same network.",
+        )
+      } else {
+        setError(err.message || "An error occurred while fetching the transaction trace")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -98,66 +114,83 @@ export function TransactionTraceViewer() {
             </Alert>
           )}
 
-          {receipt && (
+          {txData && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Transaction Details</h3>
                 <Badge
-                  variant={receipt.status === 1 ? "outline" : "destructive"}
-                  className={receipt.status === 1 ? "bg-green-50 text-green-800 border-green-200" : ""}
+                  variant={txData.status === "confirmed" && txData.receipt.status === 1 ? "outline" : "destructive"}
+                  className={
+                    txData.status === "confirmed" && txData.receipt.status === 1
+                      ? "bg-green-50 text-green-800 border-green-200"
+                      : ""
+                  }
                 >
-                  {receipt.status === 1 ? (
-                    <>
-                      <CheckCircle className="h-3 w-3 mr-1" /> Success
-                    </>
+                  {txData.status === "confirmed" ? (
+                    txData.receipt.status === 1 ? (
+                      <>
+                        <CheckCircle className="h-3 w-3 mr-1" /> Success
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-3 w-3 mr-1" /> Failed
+                      </>
+                    )
                   ) : (
-                    <>
-                      <AlertCircle className="h-3 w-3 mr-1" /> Failed
-                    </>
+                    "Pending"
                   )}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="font-medium">Transaction Hash:</div>
-                <div className="font-mono break-all">{receipt.hash}</div>
+                <div className="font-mono break-all">{txData.transaction.hash}</div>
 
                 <div className="font-medium">Block Number:</div>
-                <div>{receipt.blockNumber ? receipt.blockNumber.toString() : "N/A"}</div>
+                <div>
+                  {txData.status === "confirmed" && txData.receipt.blockNumber
+                    ? txData.receipt.blockNumber.toString()
+                    : "N/A"}
+                </div>
 
                 <div className="font-medium">Gas Used:</div>
                 <div>
-                  {receipt.gasUsed ? receipt.gasUsed.toString() : "N/A"}
-                  {receipt.gasUsed && receipt.gasLimit
-                    ? `(${((Number(receipt.gasUsed) / Number(receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
-                    : ""}
+                  {txData.status === "confirmed" && txData.receipt.gasUsed
+                    ? `${txData.receipt.gasUsed.toString()} ${
+                        txData.receipt.gasLimit
+                          ? `(${((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
+                          : ""
+                      }`
+                    : "N/A"}
                 </div>
               </div>
 
-              {receipt.pyusdTransfers && receipt.pyusdTransfers.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">PYUSD Transfers</h3>
-                    <div className="space-y-2">
-                      {receipt.pyusdTransfers.map((transfer, index) => (
-                        <div key={index} className="p-3 border rounded-md">
-                          <div className="grid grid-cols-2 gap-1 text-sm">
-                            <div className="font-medium">From:</div>
-                            <div className="font-mono text-xs">{transfer.from}</div>
+              {txData.status === "confirmed" &&
+                txData.receipt.pyusdTransfers &&
+                txData.receipt.pyusdTransfers.length > 0 && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">PYUSD Transfers</h3>
+                      <div className="space-y-2">
+                        {txData.receipt.pyusdTransfers.map((transfer, index) => (
+                          <div key={index} className="p-3 border rounded-md">
+                            <div className="grid grid-cols-2 gap-1 text-sm">
+                              <div className="font-medium">From:</div>
+                              <div className="font-mono text-xs">{transfer.from}</div>
 
-                            <div className="font-medium">To:</div>
-                            <div className="font-mono text-xs">{transfer.to}</div>
+                              <div className="font-medium">To:</div>
+                              <div className="font-mono text-xs">{transfer.to}</div>
 
-                            <div className="font-medium">Amount:</div>
-                            <div>{transfer.formattedValue} PYUSD</div>
+                              <div className="font-medium">Amount:</div>
+                              <div>{transfer.formattedValue} PYUSD</div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
 
               <Separator />
 
@@ -167,7 +200,7 @@ export function TransactionTraceViewer() {
                     <List className="h-4 w-4 mr-2" />
                     Overview
                   </TabsTrigger>
-                  <TabsTrigger value="trace" disabled={!receipt.traceData}>
+                  <TabsTrigger value="trace" disabled={!txData.receipt.traceData}>
                     <Code className="h-4 w-4 mr-2" />
                     Execution Trace
                   </TabsTrigger>
@@ -179,16 +212,16 @@ export function TransactionTraceViewer() {
 
                 <TabsContent value="overview" className="mt-4">
                   <div className="space-y-4">
-                    {receipt.decodedInput && (
+                    {txData.receipt.decodedInput && (
                       <div>
                         <h4 className="font-semibold mb-2">Decoded Function Call</h4>
                         <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-md">
                           <p className="font-mono text-sm">
-                            {receipt.decodedInput.name}(
-                            {receipt.decodedInput.args
+                            {txData.receipt.decodedInput.name}(
+                            {txData.receipt.decodedInput.args
                               .map(
                                 (arg: any, i: number) =>
-                                  `${receipt.decodedInput.functionFragment.inputs[i].name}: ${arg.toString()}`,
+                                  `${txData.receipt.decodedInput.functionFragment.inputs[i].name}: ${arg.toString()}`,
                               )
                               .join(", ")}
                             )
@@ -203,25 +236,33 @@ export function TransactionTraceViewer() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Gas Used:</div>
                           <div>
-                            {receipt.gasUsed ? receipt.gasUsed.toString() : "N/A"}
-                            {receipt.gasUsed && receipt.gasLimit
-                              ? `(${((Number(receipt.gasUsed) / Number(receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
+                            {txData.status === "confirmed" && txData.receipt.gasUsed
+                              ? txData.receipt.gasUsed.toString()
+                              : "N/A"}
+                            {txData.status === "confirmed" && txData.receipt.gasUsed && txData.receipt.gasLimit
+                              ? ` (${((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
                               : ""}
                           </div>
 
-                          <div>Effective Gas Price:</div>
+                          <div>Gas Price:</div>
                           <div>
-                            {receipt.effectiveGasPrice
-                              ? (Number(receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
-                              : "N/A"}
+                            {txData.gasInfo?.gasPrice ||
+                              (txData.status === "confirmed" && txData.receipt.effectiveGasPrice
+                                ? (Number(txData.receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
+                                : "N/A")}
                           </div>
 
-                          <div>Total Cost:</div>
+                          <div>Transaction Fee:</div>
                           <div>
-                            {receipt.effectiveGasPrice && receipt.gasUsed
-                              ? ((Number(receipt.gasUsed) * Number(receipt.effectiveGasPrice)) / 1e18).toFixed(6) +
-                                " ETH"
-                              : "N/A"}
+                            {txData.gasInfo?.gasCost ||
+                              (txData.status === "confirmed" &&
+                              txData.receipt.effectiveGasPrice &&
+                              txData.receipt.gasUsed
+                                ? (
+                                    (Number(txData.receipt.gasUsed) * Number(txData.receipt.effectiveGasPrice)) /
+                                    1e18
+                                  ).toFixed(9) + " ETH"
+                                : "N/A")}
                           </div>
                         </div>
                       </div>
@@ -230,24 +271,24 @@ export function TransactionTraceViewer() {
                 </TabsContent>
 
                 <TabsContent value="trace" className="mt-4">
-                  {receipt.traceData ? (
+                  {txData.receipt.traceData ? (
                     <div className="space-y-4">
                       <div className="max-h-96 overflow-auto">
                         <pre className="p-4 bg-slate-100 dark:bg-slate-800 rounded-md text-xs font-mono whitespace-pre-wrap">
-                          {JSON.stringify(receipt.traceData.structLogs, null, 2)}
+                          {JSON.stringify(txData.receipt.traceData.structLogs, null, 2)}
                         </pre>
                       </div>
                       <div>
                         <h4 className="font-semibold mb-2">Execution Summary</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Total Operations:</div>
-                          <div>{receipt.traceData.structLogs.length}</div>
+                          <div>{txData.receipt.traceData.structLogs.length}</div>
 
                           <div>Gas Used:</div>
-                          <div>{receipt.traceData.gas}</div>
+                          <div>{txData.receipt.traceData.gas}</div>
 
                           <div>Return Value:</div>
-                          <div className="font-mono">{receipt.traceData.returnValue}</div>
+                          <div className="font-mono">{txData.receipt.traceData.returnValue}</div>
                         </div>
                       </div>
                     </div>
@@ -264,7 +305,7 @@ export function TransactionTraceViewer() {
                 <TabsContent value="raw" className="mt-4">
                   <div className="max-h-96 overflow-auto">
                     <pre className="p-4 bg-slate-100 dark:bg-slate-800 rounded-md text-xs font-mono whitespace-pre-wrap">
-                      {JSON.stringify(receipt, null, 2)}
+                      {JSON.stringify(txData, null, 2)}
                     </pre>
                   </div>
                 </TabsContent>

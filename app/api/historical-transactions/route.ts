@@ -10,18 +10,22 @@ export async function GET(request: NextRequest) {
   const pageSize = searchParams.get("pageSize") || "10"
 
   // Drastically reduce default block count to improve performance
-  const maxBlocks = 400 // Reduced from 100 to 50 to avoid query limit errors
+  const maxBlocks = 400 // Reduced from 1000 to 400 to avoid query limit errors
 
   if (!address) {
     return NextResponse.json({ error: "Address is required" }, { status: 400 })
   }
 
   try {
-    // Use a smaller block range to avoid query limit errors and improve performance
+    console.log(`Fetching transactions for address ${address} with block count ${maxBlocks}`)
+    
+    // Get all transactions first
     const transactions = await getHistoricalPyusdTransactions(
       address,
       blockCount ? Math.min(Number.parseInt(blockCount), maxBlocks) : maxBlocks,
     )
+    
+    console.log(`Found ${transactions.length} transactions for address ${address}`)
 
     // Implement pagination
     const pageNum = Number.parseInt(page, 10)
@@ -30,10 +34,20 @@ export async function GET(request: NextRequest) {
     const endIndex = startIndex + pageSizeNum
     const paginatedTransactions = transactions.slice(startIndex, endIndex)
 
-    
+    // Return pagination metadata along with the transactions
+    const result = {
+      transactions: paginatedTransactions,
+      pagination: {
+        total: transactions.length,
+        page: pageNum,
+        pageSize: pageSizeNum,
+        totalPages: Math.ceil(transactions.length / pageSizeNum),
+        hasMore: endIndex < transactions.length,
+      },
+    }
 
     // Use our custom JSON serialization to handle BigInt values
-    const safeResult = JSON.parse(safeStringify(paginatedTransactions))
+    const safeResult = JSON.parse(safeStringify(result))
     return NextResponse.json(safeResult)
   } catch (error: any) {
     console.error("Error in historical-transactions API route:", error)

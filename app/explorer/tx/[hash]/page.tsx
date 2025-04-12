@@ -206,28 +206,31 @@ export default function TransactionPage() {
                     <div>
                       <div className="font-medium">Gas Used:</div>
                       <div>
-                        {txData.receipt.gasUsed.toString()} (
-                        {((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of
-                        limit)
+                        {txData.receipt.gasUsed.toString()}
+                        {txData.receipt.gasLimit
+                          ? ` (${((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
+                          : ""}
                       </div>
                     </div>
                     <div>
-                      <div className="font-medium">Effective Gas Price:</div>
+                      <div className="font-medium">Gas Price:</div>
                       <div>
-                        {txData.receipt.effectiveGasPrice
-                          ? (Number(txData.receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
-                          : "N/A"}
+                        {txData.gasInfo?.gasPrice ||
+                          (txData.receipt.effectiveGasPrice
+                            ? (Number(txData.receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
+                            : "N/A")}
                       </div>
                     </div>
                     <div>
-                      <div className="font-medium">Total Cost:</div>
+                      <div className="font-medium">Transaction Fee:</div>
                       <div>
-                        {txData.receipt.effectiveGasPrice
-                          ? (
-                              (Number(txData.receipt.gasUsed) * Number(txData.receipt.effectiveGasPrice)) /
-                              1e18
-                            ).toFixed(6) + " ETH"
-                          : "N/A"}
+                        {txData.gasInfo?.gasCost ||
+                          (txData.receipt.effectiveGasPrice && txData.receipt.gasUsed
+                            ? (
+                                (Number(txData.receipt.gasUsed) * Number(txData.receipt.effectiveGasPrice)) /
+                                1e18
+                              ).toFixed(9) + " ETH"
+                            : "N/A")}
                       </div>
                     </div>
                   </>
@@ -351,26 +354,29 @@ export default function TransactionPage() {
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>Gas Used:</div>
                             <div>
-                              {txData.receipt.gasUsed.toString()} (
-                              {((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}%
-                              of limit)
+                              {txData.receipt.gasUsed ? txData.receipt.gasUsed.toString() : "N/A"}
+                              {txData.receipt.gasUsed && txData.receipt.gasLimit
+                                ? ` (${((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
+                                : ""}
                             </div>
 
-                            <div>Effective Gas Price:</div>
+                            <div>Gas Price:</div>
                             <div>
-                              {txData.receipt.effectiveGasPrice
-                                ? (Number(txData.receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
-                                : "N/A"}
+                              {txData.gasInfo?.gasPrice ||
+                                (txData.receipt.effectiveGasPrice
+                                  ? (Number(txData.receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
+                                  : "N/A")}
                             </div>
 
-                            <div>Total Cost:</div>
+                            <div>Transaction Fee:</div>
                             <div>
-                              {txData.receipt.effectiveGasPrice
-                                ? (
-                                    (Number(txData.receipt.gasUsed) * Number(txData.receipt.effectiveGasPrice)) /
-                                    1e18
-                                  ).toFixed(6) + " ETH"
-                                : "N/A"}
+                              {txData.gasInfo?.gasCost ||
+                                (txData.receipt.effectiveGasPrice && txData.receipt.gasUsed
+                                  ? (
+                                      (Number(txData.receipt.gasUsed) * Number(txData.receipt.effectiveGasPrice)) /
+                                      1e18
+                                    ).toFixed(9) + " ETH"
+                                  : "N/A")}
                             </div>
                           </div>
                         </div>
