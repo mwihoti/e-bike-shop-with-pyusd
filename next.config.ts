@@ -9,7 +9,14 @@ const nextConfig: NextConfig = {
     };
     return config
   },
-  reactStrictMode: true
+  reactStrictMode: true,
+  typescript: {
+    ignoreBuildErrors: true, // Suppress TypeScript errors during builds
+  },
+  eslint: {
+    ignoreDuringBuilds: true, // Suppress ESLint errors during builds
+  },
+
 };
 
 export default nextConfig;

@@ -278,7 +278,7 @@ export default function DiagnosticsPage() {
             </ol>
 
             <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-md">
-              <p className="font-mono text-sm mb-2">// Example configuration in hooks/use-wallet.tsx</p>
+              <p className="font-mono text-sm mb-2">'// Example configuration in hooks/use-wallet.tsx'</p>
               <p className="font-mono text-sm">
                 const provider = new ethers.JsonRpcProvider('https://YOUR_GCP_RPC_ENDPOINT');
               </p>

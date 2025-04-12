@@ -33,16 +33,22 @@ export default function ConnectWalletPage() {
     return null
  }
 
- try {
-    await connectWallet()
-    // redirect automatically
- } catch (err: any) {
-    setError(err.message || "Falied to connect wallet")
- } finally {
-    setIsConnecting(false)
- }
+ 
+ const handleConnectWallet = async () => {
+    setIsConnecting(true)
+    setError(null)
 
-}
+    try {
+      await connectWallet()
+      // redirect automatically
+      router.push("/marketplace")
+    } catch (err: any) {
+      setError(err.message || "Failed to connect wallet")
+      console.error("Wallet connection error:", err)
+    } finally {
+      setIsConnecting(false)
+    }
+  }
 
 return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate=50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
@@ -107,4 +113,4 @@ return (
             </CardFooter>
         </Card>
     </div>
-)
+)}
