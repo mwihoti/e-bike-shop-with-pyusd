@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Mail, Github, AlertCircle } from "lucide-react"
 import { FcGoogle } from "react-icons/fc"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function RegisterPage() {
     const [email, setEmail] = useState("")
@@ -44,7 +45,20 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900  dark:to-slate-800 p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900  dark:to-slate-800 p-4">
+             <div className="text-center mb-8">
+                      <div className="flex justify-center mb-4">
+                        <Image
+                          src="/retailer.png"
+                          alt="PYUSD Marketplace"
+                          width={80}
+                          height={80}
+                          className="rounded-full"
+                        />
+                      </div>
+                      <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">PYUSD Marketplace</h1>
+                      <p className="text-slate-600 dark:text-slate-300 mt-2">Login to access the marketplace</p>
+                    </div>
             <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
@@ -112,7 +126,7 @@ export default function RegisterPage() {
                 <CardFooter className="flex justify-center">
                     <p className="text-sm text-muted-foreground">
                     Already have an account?{" "}
-                    <Link href="/auth/login" className="text-primary font-medium">
+                    <Link href="/marketplace/auth/login" className="text-primary font-medium">
                     Log in </Link>
                     </p>
                 </CardFooter>

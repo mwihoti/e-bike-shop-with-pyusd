@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Store, ShoppingCart, User, LogOut, ShoppingBag } from "lucide-react"
+import {  ShoppingCart, User, LogOut, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import { WalletStatus } from "./wallet-status"
 
@@ -41,16 +41,11 @@ export function MarketplaceHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center">
-          <Link href="/marketplace" className="flex items-center gap-2">
-            <Store className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold hidden sm:inline-block">PYUSD Marketplace</span>
-          </Link>
-        </div>
+    <header className="sticky  top-0 z-40 w-full border-b bg-background/95 grid  justify-items-end  backdrop-blur supports-[backdrop-filter]:bg-background/60 ">
+      <div className="container flex  mr-4 h-16 items-center ">
+       
 
-        <div className="flex items-center gap-4">
+        <div className="flex justify-end gap-4">
             <WalletStatus />
           
           <Sheet>
