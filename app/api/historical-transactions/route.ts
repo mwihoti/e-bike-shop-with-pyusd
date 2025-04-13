@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     // Implement pagination
     const pageNum = Number.parseInt(page, 10)
-    const maxPageSize = 100
+    const maxPageSize = 50
     const pageSizeNum = Math.min(Number.parseInt(pageSize, 10), maxPageSize)
     if (isNaN(pageNum) || isNaN(pageSizeNum)) {
       return NextResponse.json({ error: "Invalid pagination values"}, { status: 400})
