@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Home, Store, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Sun, Moon, Database, Shield, Menu, X,   ShoppingCart, User, LogOut, Activity } from "lucide-react"
+import { Home, Store, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Sun, Moon, Database, Shield, Menu, X,   ShoppingCart, User, LogOut, Activity, Import } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   DropdownMenu,
@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
 import { useTheme } from "./theme-provider"
 import { Switch } from "@/components/ui/switch"
-
+import Image from "next/image"
 
 const navItems = [
   { id: "home", name: "Home", href: "/", icon: Home },
@@ -56,7 +56,13 @@ export function BlockchainNavbar() {
       <div className="container flex h-14 items-center">
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="flex items-center space-x-2">
-            <Store className="h-6 w-6" />
+          <Image 
+              src="/retailer.png" 
+              alt="PYUSD Logo" 
+              width={24} 
+              height={24}
+              className="h-10 w-10 ml-10"
+            />
             <span className="font-bold">PYUSD dApp</span>
           </Link>
         </div>

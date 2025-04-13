@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
-import { Github } from 'lucide-react'
+import { Github, Chrome } from 'lucide-react'
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -72,10 +72,18 @@ export default function RegisterPage() {
       <Separator className="my-8" />
 
       <div className="space-y-4">
+        <div>
         <Button variant="outline" className="w-full" onClick={() => signIn("github")} disabled={isLoading}>
           <Github className="mr-2 h-4 w-4" />
           Register with GitHub
         </Button>
+        </div>
+        <div>
+
+        <Button variant="outline" className="w-full" onClick={() => signIn("github")} disabled={isLoading}>
+          <Chrome className="mr-2 h-4 w-4" />
+          Register with Google
+        </Button></div>
 
         <div className="text-center text-sm">
           Already have an account?{" "}
