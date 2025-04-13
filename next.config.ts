@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true, // Suppress ESLint errors during builds
   },
+  runtime: 'edge',
+  maxDuration: 20,
 
 };
 

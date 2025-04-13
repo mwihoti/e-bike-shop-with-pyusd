@@ -43,3 +43,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+export const config = {
+  maxDuration: 20, // maximum allowed is 10s for Node.js functions, 30s for Edge Functions
+};
