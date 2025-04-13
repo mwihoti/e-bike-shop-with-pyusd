@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getHistoricalPyusdTransactions } from "@/utils/advanced-rpc"
 import { safeStringify } from "@/utils/json-helpers"
 export const config = {
-  maxDuration: 30 // set max duration to 30 seconds
+  maxDuration: 30 // set max duration to 30
 }
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const pageSize = searchParams.get("pageSize") || "10"
 
   // Drastically reduce default block count to improve performance
-  const maxBlocks = 50 // Reduced from 1000 to 50 to avoid query limit errors
+  const maxBlocks = 100 // Reduced from 1000 to 100 to avoid query limit errors
 
   if (!address) {
     return NextResponse.json({ error: "Address is required" }, { status: 400 })
@@ -28,10 +28,10 @@ export async function GET(request: NextRequest) {
     )
     
     console.log(`Found ${transactions.length} transactions for address ${address}`)
-
+{/*
     // Implement pagination
     const pageNum = Number.parseInt(page, 10)
-    const maxPageSize = 50
+    const maxPageSize = 100
     const pageSizeNum = Math.min(Number.parseInt(pageSize, 10), maxPageSize)
     if (isNaN(pageNum) || isNaN(pageSizeNum)) {
       return NextResponse.json({ error: "Invalid pagination values"}, { status: 400})
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(transactions.length / pageSizeNum),
         hasMore: endIndex < transactions.length,
       },
-    }
+    }*/}
 
     // Use our custom JSON serialization to handle BigInt values
     const safeResult = JSON.parse(safeStringify(transactions))
