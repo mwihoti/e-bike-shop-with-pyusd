@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     )
     
     console.log(`Found ${transactions.length} transactions for address ${address}`)
-{/*
+
     // Implement pagination
     const pageNum = Number.parseInt(page, 10)
     const maxPageSize = 100
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(transactions.length / pageSizeNum),
         hasMore: endIndex < transactions.length,
       },
-    }*/}
+    }
 
     // Use our custom JSON serialization to handle BigInt values
     const safeResult = JSON.parse(safeStringify(transactions))
