@@ -396,7 +396,7 @@ export default function TransactionPage() {
                           <h4 className="font-semibold mb-2">Execution Summary</h4>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>Total Operations:</div>
-                            <div>{txData.receipt.traceData.structLogs.length}</div>
+                            <div>{txData.receipt.traceData.structLogs?.length}</div>
 
                             <div>Gas Used:</div>
                             <div>{txData.receipt.traceData.gas}</div>

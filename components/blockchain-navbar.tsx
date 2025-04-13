@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Home, Store, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Database, Shield, Menu, X,   ShoppingCart, User, LogOut, Activity } from "lucide-react"
+import { Home, Store, FileSearch, BarChart2, Wallet, ShoppingBag, Settings, Sun, Moon, Database, Shield, Menu, X,   ShoppingCart, User, LogOut, Activity } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   DropdownMenu,
@@ -21,6 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
+import { useTheme } from "./theme-provider"
+import { Switch } from "@/components/ui/switch"
 
 
 const navItems = [
@@ -39,15 +41,16 @@ export function BlockchainNavbar() {
   const [isOpen, setIsOpen] = useState(false)
     const { itemCount } = useCart()
       const { user, signOut } = useAuth()
+      const {theme, setTheme} = useTheme()
     
-  
+
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
   if (!isMounted) return null
-
+  const isDarkMode = theme === "dark"
   return (
     <div className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
@@ -107,6 +110,20 @@ export function BlockchainNavbar() {
                     </Link>
                   )
                 })}
+                   {/* Theme toggle in mobile menu */}
+                   <div className="flex items-center p-2 rounded-md hover:bg-accent">
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center">
+                      {isDarkMode ? <Moon className="h-5 w-5 mr-3" /> : <Sun className="h-5 w-5 mr-3" />}
+                      <span>Theme</span>
+                    </div>
+                    <Switch
+                      checked={isDarkMode}
+                      onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                      aria-label="Toggle theme"
+                    />
+                  </div>
+                </div>
               </nav>
             </div>
           </div>
@@ -115,50 +132,23 @@ export function BlockchainNavbar() {
 <div className="flex items-center gap-4">
             <WalletStatus />
           
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="relative">
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Cart
-                {itemCount > 0 && <Badge className="absolute -top-2 -right-2 px-2 py-1 text-xs">{itemCount}</Badge>}
-              </Button>
-            </SheetTrigger>
-            <SheetContent>
-              <CartSummary />
-            </SheetContent>
-          </Sheet>
+          
         
 
-          <DropdownMenu>
-           
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || user?.email}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <Link href="/marketplace/orders">
-                <DropdownMenuItem>
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  <span>My Orders</span>
-                </DropdownMenuItem>
-              </Link>
-              <Link href="/marketplace/profile">
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-              </Link>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => signOut()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
+        <div className="ml-auto flex items-center space-x-4">
+          {/* Theme toggle for desktop */}
+          <div className="hidden md:flex items-center space-x-2 mr-2">
+            <div className="flex items-center space-x-2">
+              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <Switch
+                checked={isDarkMode}
+                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                aria-label="Toggle theme"
+              />
+            </div>
+          </div>
 
         <div className="ml-auto flex items-center space-x-4">
           <Button variant="outline" size="sm" className="hidden md:flex">
@@ -166,6 +156,7 @@ export function BlockchainNavbar() {
             <span>Secured by GCP</span>
           </Button>
         </div>
+      </div>
       </div>
     </div>
   )

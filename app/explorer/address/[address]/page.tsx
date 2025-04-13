@@ -29,11 +29,19 @@ export default function AddressPage() {
 
       try {
         // Use a smaller block count to avoid query limit errors
-        const response = await fetch(`/api/historical-transactions?address=${address}&blockCount=1000`)
+        const response = await fetch(`/api/historical-transactions?address=${address}&blockCount=500`)
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Failed to fetch address transactions")
+          const text = await response.text()
+          let errorMessage = "Failed to fetch address transactions"
+
+          try {
+            const errorData = JSON.parse(text)
+            errorMessage = errorData.error || errorMessage
+          } catch {
+            errorMessage = text
+          }
+          throw new Error(errorMessage)
         }
 
         const data = await response.json()

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getHistoricalPyusdTransactions } from "@/utils/advanced-rpc"
 import { safeStringify } from "@/utils/json-helpers"
+import { error } from "console"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -29,7 +30,11 @@ export async function GET(request: NextRequest) {
 
     // Implement pagination
     const pageNum = Number.parseInt(page, 10)
-    const pageSizeNum = Number.parseInt(pageSize, 10)
+    const maxPageSize = 100
+    const pageSizeNum = Math.min(Number.parseInt(pageSize, 10), maxPageSize)
+    if (isNaN(pageNum) || isNaN(pageSizeNum)) {
+      return NextResponse.json({ error: "Invalid pagination values"}, { status: 400})
+    }
     const startIndex = (pageNum - 1) * pageSizeNum
     const endIndex = startIndex + pageSizeNum
     const paginatedTransactions = transactions.slice(startIndex, endIndex)
