@@ -166,7 +166,7 @@ export function TransactionTraceViewer() {
               </div>
 
               {txData.status === "confirmed" &&
-                txData.receipt.pyusdTransfers &&
+                Array.isArray(txData.receipt?.pyusdTransfers ) &&
                 txData.receipt.pyusdTransfers.length > 0 && (
                   <>
                     <Separator />
