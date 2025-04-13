@@ -29,7 +29,7 @@ export default function AddressPage() {
 
       try {
         // Use a smaller block count to avoid query limit errors
-        const response = await fetch(`/api/historical-transactions?address=${address}&blockCount=500`)
+        const response = await fetch(`/api/historical-transactions?address=${address}`)
 
         if (!response.ok) {
           const text = await response.text()
