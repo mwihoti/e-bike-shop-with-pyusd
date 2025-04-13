@@ -119,15 +119,15 @@ export function TransactionTraceViewer() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Transaction Details</h3>
                 <Badge
-                  variant={txData.status === "confirmed" && txData.receipt.status === 1 ? "outline" : "destructive"}
+                  variant={txData.status === "confirmed" && txData.receipt?.status === 1 ? "outline" : "destructive"}
                   className={
-                    txData.status === "confirmed" && txData.receipt.status === 1
+                    txData.status === "confirmed" && txData.receipt?.status === 1
                       ? "bg-green-50 text-green-800 border-green-200"
                       : ""
                   }
                 >
                   {txData.status === "confirmed" ? (
-                    txData.receipt.status === 1 ? (
+                    txData.receipt?.status === 1 ? (
                       <>
                         <CheckCircle className="h-3 w-3 mr-1" /> Success
                       </>
@@ -148,14 +148,14 @@ export function TransactionTraceViewer() {
 
                 <div className="font-medium">Block Number:</div>
                 <div>
-                  {txData.status === "confirmed" && txData.receipt.blockNumber
+                  {txData.status === "confirmed" && txData.receipt?.blockNumber
                     ? txData.receipt.blockNumber.toString()
                     : "N/A"}
                 </div>
 
                 <div className="font-medium">Gas Used:</div>
                 <div>
-                  {txData.status === "confirmed" && txData.receipt.gasUsed
+                  {txData.status === "confirmed" && txData.receipt?.gasUsed
                     ? `${txData.receipt.gasUsed.toString()} ${
                         txData.receipt.gasLimit
                           ? `(${((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
@@ -166,8 +166,8 @@ export function TransactionTraceViewer() {
               </div>
 
               {txData.status === "confirmed" &&
-                Array.isArray(txData.receipt?.pyusdTransfers ) &&
-                txData.receipt.pyusdTransfers.length > 0 && (
+                Array.isArray(txData.receipt?.pyusdTransfers) &&
+                txData.receipt?.pyusdTransfers.length > 0 && (
                   <>
                     <Separator />
                     <div>
@@ -200,7 +200,7 @@ export function TransactionTraceViewer() {
                     <List className="h-4 w-4 mr-2" />
                     Overview
                   </TabsTrigger>
-                  <TabsTrigger value="trace" disabled={!txData.receipt.traceData}>
+                  <TabsTrigger value="trace" disabled={!txData.receipt?.traceData}>
                     <Code className="h-4 w-4 mr-2" />
                     Execution Trace
                   </TabsTrigger>
@@ -212,7 +212,7 @@ export function TransactionTraceViewer() {
 
                 <TabsContent value="overview" className="mt-4">
                   <div className="space-y-4">
-                    {txData.receipt.decodedInput && (
+                    {txData.receipt?.decodedInput && (
                       <div>
                         <h4 className="font-semibold mb-2">Decoded Function Call</h4>
                         <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-md">
@@ -221,7 +221,7 @@ export function TransactionTraceViewer() {
                             {txData.receipt.decodedInput.args
                               .map(
                                 (arg: any, i: number) =>
-                                  `${txData.receipt.decodedInput.functionFragment.inputs[i].name}: ${arg.toString()}`,
+                                  `${txData.receipt.decodedInput.functionFragment.inputs[i]?.name || `arg${i}`}: ${arg.toString()}`,
                               )
                               .join(", ")}
                             )
@@ -236,10 +236,10 @@ export function TransactionTraceViewer() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Gas Used:</div>
                           <div>
-                            {txData.status === "confirmed" && txData.receipt.gasUsed
+                            {txData.status === "confirmed" && txData.receipt?.gasUsed
                               ? txData.receipt.gasUsed.toString()
                               : "N/A"}
-                            {txData.status === "confirmed" && txData.receipt.gasUsed && txData.receipt.gasLimit
+                            {txData.status === "confirmed" && txData.receipt?.gasUsed && txData.receipt?.gasLimit
                               ? ` (${((Number(txData.receipt.gasUsed) / Number(txData.receipt.gasLimit)) * 100).toFixed(2)}% of limit)`
                               : ""}
                           </div>
@@ -247,7 +247,7 @@ export function TransactionTraceViewer() {
                           <div>Gas Price:</div>
                           <div>
                             {txData.gasInfo?.gasPrice ||
-                              (txData.status === "confirmed" && txData.receipt.effectiveGasPrice
+                              (txData.status === "confirmed" && txData.receipt?.effectiveGasPrice
                                 ? (Number(txData.receipt.effectiveGasPrice) / 1e9).toFixed(2) + " Gwei"
                                 : "N/A")}
                           </div>
@@ -256,8 +256,8 @@ export function TransactionTraceViewer() {
                           <div>
                             {txData.gasInfo?.gasCost ||
                               (txData.status === "confirmed" &&
-                              txData.receipt.effectiveGasPrice &&
-                              txData.receipt.gasUsed
+                              txData.receipt?.effectiveGasPrice &&
+                              txData.receipt?.gasUsed
                                 ? (
                                     (Number(txData.receipt.gasUsed) * Number(txData.receipt.effectiveGasPrice)) /
                                     1e18
@@ -271,7 +271,7 @@ export function TransactionTraceViewer() {
                 </TabsContent>
 
                 <TabsContent value="trace" className="mt-4">
-                  {txData.receipt.traceData ? (
+                  {txData.receipt?.traceData ? (
                     <div className="space-y-4">
                       <div className="max-h-96 overflow-auto">
                         <pre className="p-4 bg-slate-100 dark:bg-slate-800 rounded-md text-xs font-mono whitespace-pre-wrap">
@@ -282,7 +282,7 @@ export function TransactionTraceViewer() {
                         <h4 className="font-semibold mb-2">Execution Summary</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Total Operations:</div>
-                          <div>{txData.receipt.traceData.structLogs.length}</div>
+                          <div>{txData.receipt.traceData.structLogs?.length || 0}</div>
 
                           <div>Gas Used:</div>
                           <div>{txData.receipt.traceData.gas}</div>
