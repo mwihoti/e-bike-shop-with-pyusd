@@ -399,7 +399,7 @@ export async function getEnhancedTransactionReceipt(txHash: string): Promise<Enh
  * Get historical PYUSD transactions for an address using standard methods
  * This is a fallback for when trace_block is not available
  */
-export async function getHistoricalPyusdTransactionsStandard(address: string, blockCount = 100): Promise<any[]> {
+export async function getHistoricalPyusdTransactionsStandard(address: string, blockCount = 50): Promise<any[]> {
   const provider = createAdvancedProvider()
 
   try {
@@ -417,20 +417,31 @@ export async function getHistoricalPyusdTransactionsStandard(address: string, bl
 
     // Look back blockCount blocks or to block 0, whichever is greater
     // Limit to a smaller range to avoid query limit errors
-    const fromBlock = Math.max(0, currentBlock - Math.min(blockCount, 100)) // Reduced from 1000 to 100
+    const fromBlock = Math.max(0, currentBlock - Math.min(blockCount, 50)) // Reduced from 1000 to 100
     console.log(`Searching from block ${fromBlock} to ${currentBlock}`)
 
     // Process in much smaller chunks to avoid query limit errors
     // Start with a very small chunk size to avoid the 10000 results limit
-    let CHUNK_SIZE = 5 // Start with a tiny chunk size
+    let CHUNK_SIZE = 3 // Start with a tiny chunk size
     const transactions = []
     const processedTxHashes = new Set()
 
     // Cache for block timestamps to avoid repeated requests
     const blockTimestampCache = new Map()
 
+    // set a time limit to ensure we don't exceed serverless function timeout
+    const startTime = Date.now()
+    const TIME_LIMIT_MS = 2000
+
+
+
     // Process blocks in chunks
     for (let chunkStart = fromBlock; chunkStart <= currentBlock; chunkStart += CHUNK_SIZE) {
+      // check if we are approaching time limit
+      if (Date.now() - startTime > TIME_LIMIT_MS) {
+        console.log(`Approaching time limit, stopping early after processing to block ${chunkStart}`)
+        break
+      }
       const chunkEnd = Math.min(chunkStart + CHUNK_SIZE - 1, currentBlock)
       console.log(`Processing blocks ${chunkStart} to ${chunkEnd}`)
 
@@ -457,7 +468,9 @@ export async function getHistoricalPyusdTransactionsStandard(address: string, bl
 
         // If successful, we can try to increase the chunk size very slightly for efficiency
         // but cap it to avoid hitting limits
-        CHUNK_SIZE = Math.min(CHUNK_SIZE + 1, 10) // Keep chunk size very small
+       if (sentLogs.length + receivedLogs.length > 0) {
+        CHUNK_SIZE = Math.min(CHUNK_SIZE + 1, 5)
+       } // Keep chunk size very small
 
         // Combine and sort logs for this chunk
         const allLogs = [...sentLogs, ...receivedLogs].sort((a, b) => b.blockNumber - a.blockNumber)
@@ -580,7 +593,7 @@ export async function getHistoricalPyusdTransactionsStandard(address: string, bl
           const suggestedRange = suggestedEnd - suggestedStart
           if (suggestedRange > 0) {
             // Use a much smaller chunk size than suggested to be safe
-            CHUNK_SIZE = Math.max(1, Math.floor(suggestedRange / 100))
+            CHUNK_SIZE = Math.max(1, Math.floor(suggestedRange / 50))
             console.log(`Adjusted chunk size to ${CHUNK_SIZE} based on provider suggestion (range: ${suggestedRange})`)
 
             // If the suggested range is very small, just process it directly
@@ -605,7 +618,7 @@ export async function getHistoricalPyusdTransactionsStandard(address: string, bl
       }
 
       // If we have enough transactions, we can stop processing to improve performance
-      if (transactions.length >= 50) {
+      if (transactions.length >= 30) {
         console.log(`Found ${transactions.length} transactions, stopping early for performance`)
         break
       }
