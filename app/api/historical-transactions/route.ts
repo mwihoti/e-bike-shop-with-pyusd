@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const pageSize = searchParams.get("pageSize") || "10"
 
   // Drastically reduce default block count to improve performance
-  const maxBlocks = 100 // Reduced from 1000 to 100 to avoid query limit errors
+  const maxBlocks = 50 // Reduced from 1000 to 50 to avoid query limit errors
 
   if (!address) {
     return NextResponse.json({ error: "Address is required" }, { status: 400 })
