@@ -7,8 +7,12 @@
 PYUSD dApp is a comprehensive decentralized application that enables users to interact with PYUSD (Paypal USD) stablecoin on the Ethereum blockchain. The platform combines a powerful blockchain explorer with a marketplace, allowing users to transfer PYUSD, explore transactions, and purchase goods and services using PYUSD.
 
 PYUSD dApp leverages Google Cloud Platform's Blockchain RPC service to provide advanced blockchain interaction capabilities. The GCP RPC service powers critical features including detailed transaction tracing, historical transaction analysis, cross-chain transaction lookups, and real-time transaction simulation. This integration enables the application to deliver enterprise-grade performance and reliability while handling complex blockchain operations that would typically overload standard RPC endpoints.
+### Demo Video
+Transaction tracing and address analysis are key features of the PYUSD dApp. To see these features in action, watch the demo video below:
 
-Video Link: 
+<video width="600" controls>
+   <source src="public/demo.mp4" type="video/mp4">
+</video>
 
 ## Problem Statement
 
@@ -104,7 +108,7 @@ PYUSD dApp addresses these challenges by providing:
    ```
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   NEXT_PUBLIC_GCP_RPC_ENDPOINT=your_gcp_rpc_endpoint (optional)
+   NEXT_PUBLIC_GCP_RPC_ENDPOINT=your_gcp_rpc_endpoint
  ```
 
 4. Set up the database:
