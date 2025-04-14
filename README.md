@@ -11,7 +11,7 @@ PYUSD dApp leverages Google Cloud Platform's Blockchain RPC service to provide a
 Transaction tracing and address analysis are key features of the PYUSD dApp. To see these features in action, watch the demo video below:
 
 <video width="600" controls>
-   <source src="public/demo.mp4" type="video/mp4">
+   <source src="/demo.mp4" type="video/mp4">
 </video>
 
 ## Problem Statement
